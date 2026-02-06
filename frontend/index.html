@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Spacegurumis</title>
+        <link rel="stylesheet" href="./styles.css?v=0.6.0" />
+    </head>
+    <body>
+        <div id="root"></div>
+        <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+        <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+        <script>
+            window.API_BASE_URL = 'https://api.spacegurumis.lat';
+            window.WHATSAPP_NUMBER = '51939732763';
+            window.WHATSAPP_TEMPLATE = 'Hola, quiero consultar por {productName}. SKU: {sku}.';
+            window.WHATSAPP_ORDER_TEMPLATE = 'Hola, quiero consultar por mi pedido #{orderId}. Total: {total}.';
+        </script>
+        <script src="./app.js?v=0.8.4"></script>
+    </body>
+</html>
