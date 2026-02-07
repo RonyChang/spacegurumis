@@ -1,0 +1,52 @@
+---
+import '../styles/global.css';
+
+type Props = {
+    title?: string;
+    description?: string;
+};
+
+const { title = 'Spacegurumis', description = 'Spacegurumis' } = Astro.props as Props;
+---
+
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>{title}</title>
+        <meta name="description" content={description} />
+    </head>
+    <body>
+        <a class="skip-link" href="#main">Saltar al contenido</a>
+
+        <header class="site-header">
+            <div class="container site-header__inner">
+                <a class="brand" href="/">
+                    <span class="brand__mark" aria-hidden="true">SG</span>
+                    <span class="brand__text">Spacegurumis</span>
+                </a>
+
+                <nav class="nav">
+                    <a class="nav__link" href="/">Catálogo</a>
+                    <a class="nav__link" href="/cart">Carrito</a>
+                    <a class="nav__link" href="/orders">Mis pedidos</a>
+                    <a class="nav__link" href="/profile">Perfil</a>
+                    <a class="nav__link" href="/login">Login</a>
+                    <a class="nav__link nav__link--cta" href="/register">Crear cuenta</a>
+                </nav>
+            </div>
+        </header>
+
+        <main id="main" class="container">
+            <slot />
+        </main>
+
+        <footer class="site-footer">
+            <div class="container site-footer__inner">
+                <p class="muted">© {new Date().getFullYear()} Spacegurumis</p>
+            </div>
+        </footer>
+    </body>
+</html>
+
