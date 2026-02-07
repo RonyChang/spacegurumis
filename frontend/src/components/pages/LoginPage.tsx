@@ -63,6 +63,10 @@ export default function LoginPage() {
                 return;
             }
 
+            if (!data || !('token' in data) || typeof data.token !== 'string' || !data.token.trim()) {
+                throw new Error('Respuesta inválida del servidor.');
+            }
+
             await saveSession(data.token);
             setPassword('');
             window.location.assign('/profile');
