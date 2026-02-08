@@ -1,50 +1,51 @@
-const jwt = require('jsonwebtoken');
+const security = require('../config/security');
+const authTokens = require('../services/authTokens.service');
 
 function authRequired(req, res, next) {
-    // Extrae y valida el JWT del header Authorization.
+    // Extrae y valida el JWT del header Authorization o cookie (modo transicional).
     const authHeader = req.headers.authorization || '';
-    if (!authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({
-            data: null,
-            message: 'No autorizado',
-            errors: [{ message: 'Token requerido' }],
-            meta: {},
-        });
-    }
-
-    const token = authHeader.replace('Bearer ', '').trim();
-    if (!token) {
-        return res.status(401).json({
-            data: null,
-            message: 'No autorizado',
-            errors: [{ message: 'Token requerido' }],
-            meta: {},
-        });
-    }
-
-    const secret = process.env.JWT_SECRET || '';
-    if (!secret) {
-        return res.status(500).json({
-            data: null,
-            message: 'Error interno del servidor',
-            errors: [{ message: 'JWT_SECRET no configurado' }],
-            meta: {},
-        });
-    }
+    const hasBearer = authHeader.startsWith('Bearer ');
 
     try {
-        const payload = jwt.verify(token, secret);
-        req.user = {
-            id: payload.id,
-            email: payload.email,
-            role: payload.role,
-        };
+        if (hasBearer) {
+            const token = authHeader.replace('Bearer ', '').trim();
+            if (!token) {
+                return res.status(401).json({
+                    data: null,
+                    message: 'No autorizado',
+                    errors: [{ message: 'Token requerido' }],
+                    meta: {},
+                });
+            }
+
+            const user = authTokens.verifyAccessToken(token);
+            req.user = user;
+            req.authMethod = 'bearer';
+            return next();
+        }
+
+        const cookies = req.cookies && typeof req.cookies === 'object' ? req.cookies : {};
+        const cookieToken = cookies[security.cookies.accessCookieName];
+        if (!cookieToken) {
+            return res.status(401).json({
+                data: null,
+                message: 'No autorizado',
+                errors: [{ message: 'Token requerido' }],
+                meta: {},
+            });
+        }
+
+        const user = authTokens.verifyAccessToken(cookieToken);
+        req.user = user;
+        req.authMethod = 'cookie';
         return next();
     } catch (error) {
-        return res.status(401).json({
+        const status = error && error.status ? error.status : 401;
+        const message = error && error.message ? error.message : 'Token inválido';
+        return res.status(status).json({
             data: null,
             message: 'No autorizado',
-            errors: [{ message: 'Token inválido' }],
+            errors: [{ message }],
             meta: {},
         });
     }

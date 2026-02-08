@@ -1,9 +1,9 @@
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
 const authRepository = require('../repositories/auth.repository');
 const adminTwoFactorService = require('./adminTwoFactor.service');
 const emailVerificationService = require('./emailVerification.service');
+const authTokens = require('./authTokens.service');
 
 function createError(status, message) {
     const error = new Error(message);
@@ -39,21 +39,7 @@ function buildUserResponse(user) {
 }
 
 function signToken(user) {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-        throw createError(500, 'JWT_SECRET no configurado');
-    }
-
-    const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
-    return jwt.sign(
-        {
-            id: user.id,
-            email: user.email,
-            role: user.role,
-        },
-        secret,
-        { expiresIn }
-    );
+    return authTokens.signToken(user, { tokenType: 'access' });
 }
 
 function getGoogleConfig() {
@@ -368,7 +354,6 @@ module.exports = {
     resendVerification,
     verifyEmail,
 };
-
 
 
 

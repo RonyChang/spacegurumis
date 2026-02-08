@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 
+const { trustProxy } = require('./config');
 const healthRoutes = require('./routes/health.routes');
 const authRoutes = require('./routes/auth.routes');
 const profileRoutes = require('./routes/profile.routes');
@@ -14,19 +15,60 @@ const stripeWebhookRoutes = require('./routes/stripeWebhook.routes');
 const adminRoutes = require('./routes/admin.routes');
 const notFound = require('./middlewares/notFound');
 const errorHandler = require('./middlewares/errorHandler');
+const cookieParser = require('./middlewares/cookieParser');
+const securityHeaders = require('./middlewares/securityHeaders');
 
 const app = express();
 
 app.disable('x-powered-by');  // Desactiva el heacder X-Powered-By: Express
+if (trustProxy) {
+    app.set('trust proxy', 1);
+}
 
-const allowedOrigins = new Set([
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'http://localhost:5500',
-    'http://127.0.0.1:5500',
-    'https://spacegurumis.lat',
-    'https://www.spacegurumis.lat',
-]);
+function parseCsv(value) {
+    if (value === undefined || value === null) {
+        return [];
+    }
+
+    return String(value)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function normalizeOrigin(value) {
+    const trimmed = String(value || '').trim();
+    if (!trimmed) {
+        return '';
+    }
+
+    return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+}
+
+function buildCorsAllowedOrigins() {
+    const envOrigins = parseCsv(process.env.CORS_ALLOWED_ORIGINS)
+        .map(normalizeOrigin)
+        .filter(Boolean);
+
+    // If explicitly set, use env var as source of truth.
+    if (envOrigins.length) {
+        return new Set(envOrigins);
+    }
+
+    // Backwards compatible fallback (current hardcoded behavior).
+    return new Set([
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://localhost:5500',
+        'http://127.0.0.1:5500',
+        'http://localhost:4321',
+        'http://127.0.0.1:4321',
+        'https://spacegurumis.lat',
+        'https://www.spacegurumis.lat',
+    ].map(normalizeOrigin).filter(Boolean));
+}
+
+const allowedOrigins = buildCorsAllowedOrigins();
 
 app.use(
     cors({
@@ -35,11 +77,16 @@ app.use(
                 return callback(null, true);
             }
 
-            const isAllowed = allowedOrigins.has(origin);
+            const isAllowed = allowedOrigins.has(normalizeOrigin(origin));
             return callback(null, isAllowed);
         },
+        credentials: true,
     })
 );
+
+app.use(securityHeaders);
+app.use(cookieParser);
+
 app.use(
     '/api/v1/webhooks/stripe',
     express.raw({ type: 'application/json' }),

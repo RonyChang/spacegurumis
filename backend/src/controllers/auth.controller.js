@@ -1,4 +1,7 @@
 ﻿const authService = require('../services/auth.service');
+const security = require('../config/security');
+const authTokens = require('../services/authTokens.service');
+const authCookies = require('../services/authCookies.service');
 
 function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
@@ -122,6 +125,19 @@ async function login(req, res, next) {
         }
 
         const result = await authService.loginUser({ email, password });
+        if (result && result.token && result.user) {
+            const accessToken = authTokens.signToken(result.user, {
+                expiresIn: security.cookies.accessExpiresIn,
+                tokenType: 'access',
+            });
+            const refreshToken = security.cookies.refreshEnabled
+                ? authTokens.signToken(result.user, {
+                    expiresIn: security.cookies.refreshExpiresIn,
+                    tokenType: 'refresh',
+                })
+                : null;
+            authCookies.setAuthCookies(res, { accessToken, refreshToken });
+        }
         return res.status(200).json({
             data: result,
             message: 'OK',
@@ -148,6 +164,19 @@ async function verifyEmail(req, res, next) {
         }
 
         const result = await authService.verifyEmail({ email, code });
+        if (result && result.token && result.user) {
+            const accessToken = authTokens.signToken(result.user, {
+                expiresIn: security.cookies.accessExpiresIn,
+                tokenType: 'access',
+            });
+            const refreshToken = security.cookies.refreshEnabled
+                ? authTokens.signToken(result.user, {
+                    expiresIn: security.cookies.refreshExpiresIn,
+                    tokenType: 'refresh',
+                })
+                : null;
+            authCookies.setAuthCookies(res, { accessToken, refreshToken });
+        }
         return res.status(200).json({
             data: result,
             message: 'OK',
@@ -174,6 +203,19 @@ async function verifyAdminTwoFactor(req, res, next) {
         }
 
         const result = await authService.verifyAdminTwoFactor({ email, code });
+        if (result && result.token && result.user) {
+            const accessToken = authTokens.signToken(result.user, {
+                expiresIn: security.cookies.accessExpiresIn,
+                tokenType: 'access',
+            });
+            const refreshToken = security.cookies.refreshEnabled
+                ? authTokens.signToken(result.user, {
+                    expiresIn: security.cookies.refreshExpiresIn,
+                    tokenType: 'refresh',
+                })
+                : null;
+            authCookies.setAuthCookies(res, { accessToken, refreshToken });
+        }
         return res.status(200).json({
             data: result,
             message: 'OK',
@@ -240,6 +282,19 @@ async function googleCallback(req, res, next) {
         }
 
         const result = await authService.loginWithGoogle(code);
+        if (result && result.token && result.user) {
+            const accessToken = authTokens.signToken(result.user, {
+                expiresIn: security.cookies.accessExpiresIn,
+                tokenType: 'access',
+            });
+            const refreshToken = security.cookies.refreshEnabled
+                ? authTokens.signToken(result.user, {
+                    expiresIn: security.cookies.refreshExpiresIn,
+                    tokenType: 'refresh',
+                })
+                : null;
+            authCookies.setAuthCookies(res, { accessToken, refreshToken });
+        }
         if (frontendBaseUrl) {
             const url = new URL('/login', frontendBaseUrl);
             url.hash = `token=${encodeURIComponent(result.token)}`;
@@ -267,6 +322,64 @@ async function googleCallback(req, res, next) {
     }
 }
 
+async function logout(req, res, next) {
+    try {
+        authCookies.clearAuthCookies(res);
+        return res.status(200).json({
+            data: { ok: true },
+            message: 'OK',
+            errors: [],
+            meta: {},
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
+async function refresh(req, res, next) {
+    try {
+        if (!security.cookies.refreshEnabled) {
+            return res.status(404).json({
+                data: null,
+                message: 'Recurso no encontrado',
+                errors: [{ message: 'Ruta no encontrada' }],
+                meta: {},
+            });
+        }
+
+        const cookies = req.cookies && typeof req.cookies === 'object' ? req.cookies : {};
+        const refreshToken = cookies[security.cookies.refreshCookieName];
+        if (!refreshToken) {
+            return res.status(401).json({
+                data: null,
+                message: 'No autorizado',
+                errors: [{ message: 'Token requerido' }],
+                meta: {},
+            });
+        }
+
+        const user = authTokens.verifyRefreshToken(refreshToken);
+        const newAccessToken = authTokens.signToken(user, {
+            expiresIn: security.cookies.accessExpiresIn,
+            tokenType: 'access',
+        });
+        const newRefreshToken = authTokens.signToken(user, {
+            expiresIn: security.cookies.refreshExpiresIn,
+            tokenType: 'refresh',
+        });
+        authCookies.setAuthCookies(res, { accessToken: newAccessToken, refreshToken: newRefreshToken });
+
+        return res.status(200).json({
+            data: { refreshed: true },
+            message: 'OK',
+            errors: [],
+            meta: {},
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 module.exports = {
     register,
     login,
@@ -275,4 +388,6 @@ module.exports = {
     resendVerification,
     googleStart,
     googleCallback,
+    logout,
+    refresh,
 };
