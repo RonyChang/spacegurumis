@@ -2,15 +2,10 @@ import { addCartItem } from '../api/cart';
 import type { GuestCartItem } from './guestCart';
 import { clearGuestCart, readGuestCart, writeGuestCart } from './guestCart';
 
-export async function syncGuestCartToBackend(token: string): Promise<{
+export async function syncGuestCartToBackend(): Promise<{
     ok: boolean;
     failedItems: GuestCartItem[];
 }> {
-    const safeToken = typeof token === 'string' ? token.trim() : '';
-    if (!safeToken) {
-        return { ok: true, failedItems: [] };
-    }
-
     const items = readGuestCart();
     if (!items.length) {
         return { ok: true, failedItems: [] };
@@ -19,7 +14,7 @@ export async function syncGuestCartToBackend(token: string): Promise<{
     const failedItems: GuestCartItem[] = [];
     for (const item of items) {
         try {
-            await addCartItem(safeToken, item.sku, item.quantity);
+            await addCartItem(item.sku, item.quantity);
         } catch {
             failedItems.push(item);
         }
@@ -33,4 +28,3 @@ export async function syncGuestCartToBackend(token: string): Promise<{
     clearGuestCart();
     return { ok: true, failedItems: [] };
 }
-

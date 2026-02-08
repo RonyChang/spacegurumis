@@ -16,8 +16,6 @@ import {
     writeGuestCart,
     type GuestCartItem,
 } from '../../lib/cart/guestCart';
-import { getAuthToken } from '../../lib/session/authToken';
-import { clearSession } from '../../lib/session/session';
 import { consumeFlash } from '../../lib/session/flash';
 import { buildWhatsappOrderMessage, buildWhatsappUrl } from '../../lib/whatsapp';
 import Alert from '../ui/Alert';
@@ -49,8 +47,7 @@ function mapGuestToCart(items: GuestCartItem[]): CartLineItem[] {
 }
 
 export default function CartPage() {
-    const token = useMemo(() => getAuthToken(), []);
-    const isLoggedIn = Boolean(token);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
 
     const [status, setStatus] = useState<'idle' | 'loading'>('idle');
     const [error, setError] = useState('');
@@ -99,21 +96,16 @@ export default function CartPage() {
             setError('');
             setMessage('');
 
-            if (!token) {
-                const guest = readGuestCart();
-                setItems(mapGuestToCart(guest));
-                setStatus('idle');
-                return;
-            }
-
             try {
-                const res = await getCartApi(token);
+                const res = await getCartApi();
                 const nextItems = Array.isArray(res.data?.items) ? res.data.items : [];
+                setIsLoggedIn(true);
                 setItems(nextItems);
             } catch (err) {
                 if (err instanceof ApiError && err.status === 401) {
-                    clearSession();
-                    window.location.assign('/login');
+                    setIsLoggedIn(false);
+                    const guest = readGuestCart();
+                    setItems(mapGuestToCart(guest));
                     return;
                 }
                 setError(err instanceof Error ? err.message : 'No se pudo cargar el carrito.');
@@ -123,7 +115,7 @@ export default function CartPage() {
         }
 
         load();
-    }, [token]);
+    }, []);
 
     async function handleUpdateQuantity(sku: string, quantity: number) {
         if (!sku) {
@@ -138,7 +130,7 @@ export default function CartPage() {
         setError('');
         setMessage('');
 
-        if (!token) {
+        if (!isLoggedIn) {
             const current = readGuestCart();
             const updated = current.map((item) =>
                 item.sku === sku ? { ...item, quantity: qty } : item
@@ -148,12 +140,13 @@ export default function CartPage() {
         }
 
         try {
-            const res = await updateCartItemApi(token, sku, qty);
+            const res = await updateCartItemApi(sku, qty);
             setItems(Array.isArray(res.data?.items) ? res.data.items : []);
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
-                clearSession();
-                window.location.assign('/login');
+                setIsLoggedIn(false);
+                const guest = readGuestCart();
+                setItems(mapGuestToCart(guest));
                 return;
             }
             setError(err instanceof Error ? err.message : 'No se pudo actualizar el carrito.');
@@ -168,19 +161,20 @@ export default function CartPage() {
         setError('');
         setMessage('');
 
-        if (!token) {
+        if (!isLoggedIn) {
             const updated = writeGuestCart(readGuestCart().filter((item) => item.sku !== sku));
             setItems(mapGuestToCart(updated));
             return;
         }
 
         try {
-            const res = await deleteCartItemApi(token, sku);
+            const res = await deleteCartItemApi(sku);
             setItems(Array.isArray(res.data?.items) ? res.data.items : []);
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
-                clearSession();
-                window.location.assign('/login');
+                setIsLoggedIn(false);
+                const guest = readGuestCart();
+                setItems(mapGuestToCart(guest));
                 return;
             }
             setError(err instanceof Error ? err.message : 'No se pudo eliminar el item.');
@@ -191,7 +185,7 @@ export default function CartPage() {
         setError('');
         setMessage('');
 
-        if (!token) {
+        if (!isLoggedIn) {
             clearGuestCart();
             setItems([]);
             setMessage('Carrito vacío.');
@@ -199,13 +193,14 @@ export default function CartPage() {
         }
 
         try {
-            await clearCartApi(token);
+            await clearCartApi();
             setItems([]);
             setMessage('Carrito vacío.');
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
-                clearSession();
-                window.location.assign('/login');
+                setIsLoggedIn(false);
+                const guest = readGuestCart();
+                setItems(mapGuestToCart(guest));
                 return;
             }
             setError(err instanceof Error ? err.message : 'No se pudo vaciar el carrito.');
@@ -246,7 +241,7 @@ export default function CartPage() {
     }
 
     async function handleCreateOrder() {
-        if (!token) {
+        if (!isLoggedIn) {
             window.location.assign('/login');
             return;
         }
@@ -262,7 +257,7 @@ export default function CartPage() {
         setPaymentError('');
         setStatus('loading');
         try {
-            const res = await createOrderApi(token, discountCode.trim() || null);
+            const res = await createOrderApi(discountCode.trim() || null);
             const orderId = res.data?.id ?? null;
             const total = res.data && Number(res.data.total);
             const shippingCost = res.data && Number(res.data.shippingCost);
@@ -285,7 +280,6 @@ export default function CartPage() {
             }
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
-                clearSession();
                 window.location.assign('/login');
                 return;
             }
@@ -296,7 +290,7 @@ export default function CartPage() {
     }
 
     async function handleStripeCheckout() {
-        if (!token) {
+        if (!isLoggedIn) {
             window.location.assign('/login');
             return;
         }
@@ -309,7 +303,7 @@ export default function CartPage() {
         setPaymentStatus('loading');
         setPaymentError('');
         try {
-            const res = await createStripeSession(token, pendingOrder.id);
+            const res = await createStripeSession(pendingOrder.id);
             const checkoutUrl = res.data?.checkoutUrl || '';
             if (!checkoutUrl) {
                 throw new Error('No se pudo iniciar el pago con Stripe.');
@@ -318,7 +312,6 @@ export default function CartPage() {
             window.location.assign(checkoutUrl);
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {
-                clearSession();
                 window.location.assign('/login');
                 return;
             }

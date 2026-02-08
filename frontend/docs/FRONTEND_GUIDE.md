@@ -9,7 +9,7 @@ Este frontend vive en `spacegurumis/frontend/` y ahora corre como **SSR en Node*
 - `src/components/pages/*.tsx`: React islands por pantalla (interactividad).
 - `src/components/ui/*.tsx`: componentes UI reusables (Button, TextField, Alert).
 - `src/lib/api/*`: cliente API (fetch + manejo de errores + endpoints).
-- `src/lib/session/*`: token `localStorage.authToken`, flash messages y helpers.
+- `src/lib/session/*`: helpers de sesion (afterLogin/logout) + flash messages (sin token en storage).
 - `src/lib/cart/*`: carrito guest (`localStorage.guestCart`) + sync al iniciar sesion.
 - `src/styles/global.css`: tokens + estilos base + componentes.
 - `legacy-static/`: frontend anterior (se conserva como referencia/rollback).
@@ -19,9 +19,19 @@ Este frontend vive en `spacegurumis/frontend/` y ahora corre como **SSR en Node*
 - **Pages (Astro)**: entregan HTML desde el servidor para rutas como `/`, `/login`, etc.
 - **Islands (React)**: se hidratan en el navegador para manejar estado, `localStorage`, formularios y llamadas a la API.
 
-Importante: el token se guarda en `localStorage` (no en cookies). Por eso:
-- El servidor SSR no puede leer el token durante el render inicial.
-- En pantallas privadas (`/profile`, `/orders`) hacemos **guard client-side** y luego fetch en cliente.
+### Auth (cookies + CSRF)
+
+La autenticacion ahora usa **cookies HttpOnly** (emitidas por el backend) en vez de guardar un JWT en `localStorage`.
+
+Implicancias:
+- Mejor seguridad: el token no es accesible desde JS (reduce impacto ante XSS).
+- Compatible con SSR: si en el futuro haces fetch server-side, puedes reenviar el header `Cookie` del request.
+
+Para requests mutables (`POST/PUT/PATCH/DELETE`) el frontend envia `X-CSRF-Token` leyendo la cookie `sg_csrf` (double-submit). Esto esta centralizado en `src/lib/api/client.ts`.
+
+Refresh (recomendado): el API client intenta `POST /api/v1/auth/refresh` cuando un request protegido falla con `401` (solo una vez por request, con single-flight). Para que funcione en prod, habilita refresh cookies en el backend (`AUTH_COOKIE_REFRESH_ENABLED=true`).
+
+Nota: muchas pantallas privadas siguen usando **guard client-side** (por simplicidad), pero ya no dependen de storage de tokens.
 
 ## 3) Rutas
 
@@ -124,7 +134,8 @@ Auth
 - [ ] `/login` login ok -> `/profile`
 - [ ] login con email no verificado -> `/verify`
 - [ ] login admin -> `/admin-2fa`
-- [ ] "Continuar con Google" inicia OAuth y vuelve a `/login#token=...`
+- [ ] "Continuar con Google" inicia OAuth y vuelve a `/login` (puede incluir `#token=...`, pero el frontend lo limpia y valida sesion via cookies)
+- [ ] logout: `POST /api/v1/auth/logout` limpia cookies y vuelve a estado logged-out
 
 Carrito + descuentos + ordenes
 - [ ] `/cart` guest: actualizar qty, eliminar, vaciar
@@ -139,3 +150,6 @@ Pedidos
 - [ ] ver detalle de pedido
 - [ ] link WhatsApp en pedido/detalle (si está configurado)
 
+Seguridad (manual)
+- [ ] en DevTools > Network: requests no envian `Authorization: Bearer ...`
+- [ ] en DevTools > Network: requests mutables incluyen `X-CSRF-Token` y no fallan por CSRF

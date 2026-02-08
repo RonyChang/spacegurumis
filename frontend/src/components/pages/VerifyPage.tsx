@@ -4,7 +4,7 @@ import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import TextField from '../ui/TextField';
 import { consumeFlash } from '../../lib/session/flash';
-import { saveSession } from '../../lib/session/session';
+import { afterLogin } from '../../lib/session/session';
 
 export default function VerifyPage() {
     const [email, setEmail] = useState('');
@@ -36,8 +36,8 @@ export default function VerifyPage() {
         setError('');
         setMessage('');
         try {
-            const res = await verifyEmail(email, code);
-            await saveSession(res.data.token);
+            await verifyEmail(email, code);
+            await afterLogin();
             setCode('');
             window.location.assign('/profile');
         } catch (err) {

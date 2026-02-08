@@ -18,23 +18,22 @@ export type Cart = {
     summary: CartSummary;
 };
 
-export function getCart(token: string) {
-    return apiGet<Cart>('/api/v1/cart', { token });
+export function getCart() {
+    return apiGet<Cart>('/api/v1/cart');
 }
 
-export function addCartItem(token: string, sku: string, quantity: number) {
-    return apiPost<Cart>('/api/v1/cart/items', { sku, quantity }, { token });
+export function addCartItem(sku: string, quantity: number) {
+    return apiPost<Cart>('/api/v1/cart/items', { sku, quantity });
 }
 
-export function updateCartItem(token: string, sku: string, quantity: number) {
-    return apiPatch<Cart>(`/api/v1/cart/items/${encodeURIComponent(sku)}`, { quantity }, { token });
+export function updateCartItem(sku: string, quantity: number) {
+    return apiPatch<Cart>(`/api/v1/cart/items/${encodeURIComponent(sku)}`, { quantity });
 }
 
-export function deleteCartItem(token: string, sku: string) {
-    return apiDelete<Cart>(`/api/v1/cart/items/${encodeURIComponent(sku)}`, { token });
+export function deleteCartItem(sku: string) {
+    return apiDelete<Cart>(`/api/v1/cart/items/${encodeURIComponent(sku)}`);
 }
 
-export function clearCart(token: string) {
-    return apiDelete<Cart>('/api/v1/cart', { token });
+export function clearCart() {
+    return apiDelete<Cart>('/api/v1/cart');
 }
-

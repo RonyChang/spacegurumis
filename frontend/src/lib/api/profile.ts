@@ -34,11 +34,10 @@ export type ProfileUpdatePayload = {
     };
 };
 
-export function getProfile(token: string) {
-    return apiGet<Profile>('/api/v1/profile', { token });
+export function getProfile() {
+    return apiGet<Profile>('/api/v1/profile');
 }
 
-export function updateProfile(token: string, payload: ProfileUpdatePayload) {
-    return apiPut<Profile>('/api/v1/profile', payload, { token });
+export function updateProfile(payload: ProfileUpdatePayload) {
+    return apiPut<Profile>('/api/v1/profile', payload);
 }
-

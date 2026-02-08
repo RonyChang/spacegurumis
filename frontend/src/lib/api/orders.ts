@@ -55,21 +55,19 @@ export type CreateOrderResult = {
     items: OrderItem[];
 };
 
-export function listOrders(token: string, page: number, pageSize: number) {
+export function listOrders(page: number, pageSize: number) {
     const safePage = Number.isFinite(Number(page)) && page > 0 ? Math.floor(page) : 1;
     const safePageSize =
         Number.isFinite(Number(pageSize)) && pageSize > 0 ? Math.floor(pageSize) : 20;
     return apiGet<OrderSummary[], PaginationMeta>(
-        `/api/v1/orders?page=${safePage}&pageSize=${safePageSize}`,
-        { token }
+        `/api/v1/orders?page=${safePage}&pageSize=${safePageSize}`
     );
 }
 
-export function getOrderDetail(token: string, id: number) {
-    return apiGet<OrderDetail>(`/api/v1/orders/${id}`, { token });
+export function getOrderDetail(id: number) {
+    return apiGet<OrderDetail>(`/api/v1/orders/${id}`);
 }
 
-export function createOrder(token: string, discountCode: string | null) {
-    return apiPost<CreateOrderResult>('/api/v1/orders', { discountCode }, { token });
+export function createOrder(discountCode: string | null) {
+    return apiPost<CreateOrderResult>('/api/v1/orders', { discountCode });
 }
-

@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ApiError } from '../../lib/api/client';
 import { getProfile, updateProfile, type Profile, type ProfileUpdatePayload } from '../../lib/api/profile';
-import { getAuthToken } from '../../lib/session/authToken';
-import { clearSession } from '../../lib/session/session';
+import { clearSession, logout } from '../../lib/session/session';
 import { consumeFlash } from '../../lib/session/flash';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
@@ -70,14 +69,7 @@ export default function ProfilePage() {
     const [profile, setProfile] = useState<Profile | null>(null);
     const [form, setForm] = useState<ProfileForm>(emptyForm());
 
-    const token = useMemo(() => getAuthToken(), []);
-
     useEffect(() => {
-        if (!token) {
-            window.location.assign('/login');
-            return;
-        }
-
         const warning = consumeFlash('cartSyncError');
         if (warning) {
             setSyncWarning(warning);
@@ -85,7 +77,7 @@ export default function ProfilePage() {
 
         setStatus('loading');
         setError('');
-        getProfile(token)
+        getProfile()
             .then((res) => {
                 setProfile(res.data);
                 setForm(formFromProfile(res.data));
@@ -99,7 +91,7 @@ export default function ProfilePage() {
                 setError(err instanceof Error ? err.message : 'No se pudo cargar el perfil.');
             })
             .finally(() => setStatus('idle'));
-    }, [token]);
+    }, []);
 
     function updateField<K extends keyof ProfileForm>(key: K, value: ProfileForm[K]) {
         setForm((prev) => ({ ...prev, [key]: value }));
@@ -149,10 +141,6 @@ export default function ProfilePage() {
 
     async function handleSubmit(event: React.FormEvent) {
         event.preventDefault();
-        if (!token) {
-            window.location.assign('/login');
-            return;
-        }
 
         const payload = buildPayload();
         if (!payload.firstName && !payload.lastName && !payload.address) {
@@ -164,7 +152,7 @@ export default function ProfilePage() {
         setError('');
         setMessage('');
         try {
-            const res = await updateProfile(token, payload);
+            const res = await updateProfile(payload);
             setProfile(res.data);
             setForm(formFromProfile(res.data));
             setMessage('Perfil actualizado correctamente.');
@@ -182,8 +170,7 @@ export default function ProfilePage() {
     }
 
     function handleLogout() {
-        clearSession();
-        window.location.assign('/');
+        logout().finally(() => window.location.assign('/'));
     }
 
     return (

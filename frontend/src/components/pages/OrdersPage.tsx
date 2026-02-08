@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ApiError } from '../../lib/api/client';
 import { formatDate, formatPrice } from '../../lib/format';
-import { getAuthToken } from '../../lib/session/authToken';
 import { clearSession } from '../../lib/session/session';
 import { getOrderDetail, listOrders, type OrderDetail, type OrderSummary } from '../../lib/api/orders';
 import Alert from '../ui/Alert';
@@ -11,8 +10,6 @@ import { buildWhatsappOrderMessage, buildWhatsappUrl } from '../../lib/whatsapp'
 const ORDERS_PAGE_SIZE = 20;
 
 export default function OrdersPage() {
-    const token = useMemo(() => getAuthToken(), []);
-
     const [orders, setOrders] = useState<OrderSummary[]>([]);
     const [status, setStatus] = useState<'idle' | 'loading'>('idle');
     const [error, setError] = useState('');
@@ -22,14 +19,9 @@ export default function OrdersPage() {
     const [detailError, setDetailError] = useState('');
 
     useEffect(() => {
-        if (!token) {
-            window.location.assign('/login');
-            return;
-        }
-
         setStatus('loading');
         setError('');
-        listOrders(token, 1, ORDERS_PAGE_SIZE)
+        listOrders(1, ORDERS_PAGE_SIZE)
             .then((res) => setOrders(Array.isArray(res.data) ? res.data : []))
             .catch((err) => {
                 if (err instanceof ApiError && err.status === 401) {
@@ -41,19 +33,14 @@ export default function OrdersPage() {
                 setError(err instanceof Error ? err.message : 'No se pudieron cargar tus pedidos.');
             })
             .finally(() => setStatus('idle'));
-    }, [token]);
+    }, []);
 
     async function handleLoadDetail(orderId: number) {
-        if (!token) {
-            window.location.assign('/login');
-            return;
-        }
-
         setDetailStatus('loading');
         setDetailError('');
         setDetail(null);
         try {
-            const res = await getOrderDetail(token, orderId);
+            const res = await getOrderDetail(orderId);
             setDetail(res.data || null);
         } catch (err) {
             if (err instanceof ApiError && err.status === 401) {

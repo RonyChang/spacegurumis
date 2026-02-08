@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { login } from '../../lib/api/auth';
+import { buildGoogleStartUrl, login } from '../../lib/api/auth';
 import { ApiError } from '../../lib/api/client';
-import { getAuthToken } from '../../lib/session/authToken';
+import { getProfile } from '../../lib/api/profile';
 import { setFlash } from '../../lib/session/flash';
-import { saveSession } from '../../lib/session/session';
+import { afterLogin } from '../../lib/session/session';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 import TextField from '../ui/TextField';
-import { buildGoogleStartUrl } from '../../lib/api/auth';
 
 export default function LoginPage() {
     const [email, setEmail] = useState('');
@@ -16,10 +15,13 @@ export default function LoginPage() {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const token = getAuthToken();
-        if (token) {
-            window.location.assign('/profile');
-        }
+        getProfile()
+            .then(() => window.location.assign('/profile'))
+            .catch((err) => {
+                if (err instanceof ApiError && err.status === 401) {
+                    return;
+                }
+            });
     }, []);
 
     useEffect(() => {
@@ -36,9 +38,19 @@ export default function LoginPage() {
 
         if (token) {
             window.history.replaceState({}, '', window.location.pathname + window.location.search);
-            saveSession(token)
-                .then(() => window.location.assign('/profile'))
-                .catch((err) => setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.'));
+            // OAuth callback sets HttpOnly cookies; ignore the hash token and validate via API.
+            getProfile()
+                .then(async () => {
+                    await afterLogin();
+                    window.location.assign('/profile');
+                })
+                .catch((err) => {
+                    if (err instanceof ApiError && err.status === 401) {
+                        setError('No se pudo iniciar sesión.');
+                        return;
+                    }
+                    setError(err instanceof Error ? err.message : 'No se pudo iniciar sesión.');
+                });
             return;
         }
 
@@ -63,11 +75,11 @@ export default function LoginPage() {
                 return;
             }
 
-            if (!data || !('token' in data) || typeof data.token !== 'string' || !data.token.trim()) {
+            if (!data || !('user' in data) || !data.user) {
                 throw new Error('Respuesta inválida del servidor.');
             }
 
-            await saveSession(data.token);
+            await afterLogin();
             setPassword('');
             window.location.assign('/profile');
         } catch (err) {

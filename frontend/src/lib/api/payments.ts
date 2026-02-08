@@ -5,7 +5,6 @@ export type StripeSession = {
     checkoutUrl: string;
 };
 
-export function createStripeSession(token: string, orderId: number) {
-    return apiPost<StripeSession>('/api/v1/payments/stripe/session', { orderId }, { token });
+export function createStripeSession(orderId: number) {
+    return apiPost<StripeSession>('/api/v1/payments/stripe/session', { orderId });
 }
-

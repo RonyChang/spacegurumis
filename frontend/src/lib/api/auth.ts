@@ -11,7 +11,7 @@ export type User = {
 
 export type AuthOk = {
     user: User;
-    token: string;
+    token?: string;
 };
 
 export type LoginResult =
@@ -47,7 +47,10 @@ export function verifyAdminTwoFactor(email: string, code: string) {
     return apiPost<AuthOk>('/api/v1/auth/admin/verify-2fa', { email, code });
 }
 
+export function logout() {
+    return apiPost<{ ok: true }>('/api/v1/auth/logout', {});
+}
+
 export function buildGoogleStartUrl() {
     return buildApiUrl('/api/v1/auth/google');
 }
-

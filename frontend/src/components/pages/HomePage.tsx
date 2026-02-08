@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addCartItem as addCartItemApi } from '../../lib/api/cart';
+import { ApiError } from '../../lib/api/client';
 import {
     getCatalogVariantDetail,
     listCatalogVariants,
@@ -8,7 +9,6 @@ import {
 } from '../../lib/api/catalog';
 import { formatPrice, formatVariantTitle } from '../../lib/format';
 import { readGuestCart, writeGuestCart } from '../../lib/cart/guestCart';
-import { getAuthToken } from '../../lib/session/authToken';
 import { buildWhatsappProductMessage, buildWhatsappUrl } from '../../lib/whatsapp';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
@@ -72,33 +72,34 @@ export default function HomePage() {
 
         setMessage('');
 
-        const token = getAuthToken();
-        if (!token) {
-            const current = readGuestCart();
-            const existing = current.find((item) => item.sku === sku);
-            if (existing) {
-                existing.quantity += 1;
-            } else {
-                current.push({
-                    sku,
-                    productName: variant.product && variant.product.name ? variant.product.name : 'Producto',
-                    variantName: variant.variantName || null,
-                    price: Number(variant.price) || 0,
-                    quantity: 1,
-                });
-            }
-
-            writeGuestCart(current);
-            setMessageTone('success');
-            setMessage('Producto agregado al carrito.');
-            return;
-        }
-
         try {
-            await addCartItemApi(token, sku, 1);
+            await addCartItemApi(sku, 1);
             setMessageTone('success');
             setMessage('Producto agregado al carrito.');
         } catch (err) {
+            if (err instanceof ApiError && err.status === 401) {
+                // Not logged in: fallback to guest cart.
+                const current = readGuestCart();
+                const existing = current.find((item) => item.sku === sku);
+                if (existing) {
+                    existing.quantity += 1;
+                } else {
+                    current.push({
+                        sku,
+                        productName:
+                            variant.product && variant.product.name ? variant.product.name : 'Producto',
+                        variantName: variant.variantName || null,
+                        price: Number(variant.price) || 0,
+                        quantity: 1,
+                    });
+                }
+
+                writeGuestCart(current);
+                setMessageTone('success');
+                setMessage('Producto agregado al carrito.');
+                return;
+            }
+
             setMessageTone('error');
             setMessage(err instanceof Error ? err.message : 'No se pudo agregar al carrito.');
         }
