@@ -3,6 +3,8 @@ const cors = require('cors');
 const morgan = require('morgan');
 
 const { trustProxy } = require('./config');
+const { parseCsv } = require('./utils/env');
+const { normalizeOrigin } = require('./utils/origin');
 const healthRoutes = require('./routes/health.routes');
 const authRoutes = require('./routes/auth.routes');
 const profileRoutes = require('./routes/profile.routes');
@@ -23,26 +25,6 @@ const app = express();
 app.disable('x-powered-by');  // Desactiva el heacder X-Powered-By: Express
 if (trustProxy) {
     app.set('trust proxy', 1);
-}
-
-function parseCsv(value) {
-    if (value === undefined || value === null) {
-        return [];
-    }
-
-    return String(value)
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean);
-}
-
-function normalizeOrigin(value) {
-    const trimmed = String(value || '').trim();
-    if (!trimmed) {
-        return '';
-    }
-
-    return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
 }
 
 function buildCorsAllowedOrigins() {

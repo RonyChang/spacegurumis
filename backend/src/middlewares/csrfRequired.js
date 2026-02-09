@@ -1,13 +1,5 @@
 const security = require('../config/security');
-
-function normalizeOrigin(value) {
-    const trimmed = String(value || '').trim();
-    if (!trimmed) {
-        return '';
-    }
-
-    return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
-}
+const { normalizeOrigin } = require('../utils/origin');
 
 const allowedOrigins = new Set(
     (security.csrf.allowedOrigins || [])

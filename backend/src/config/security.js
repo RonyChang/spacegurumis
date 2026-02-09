@@ -1,37 +1,7 @@
 const { nodeEnv } = require('./index');
-
-function parseBoolean(value, defaultValue = false) {
-    if (value === undefined || value === null) {
-        return defaultValue;
-    }
-
-    const normalized = String(value).trim().toLowerCase();
-    if (!normalized) {
-        return defaultValue;
-    }
-
-    return ['1', 'true', 'yes', 'y', 'on'].includes(normalized);
-}
-
-function parseCsv(value) {
-    if (value === undefined || value === null) {
-        return [];
-    }
-
-    return String(value)
-        .split(',')
-        .map((item) => item.trim())
-        .filter(Boolean);
-}
-
-function normalizeOrigin(value) {
-    const trimmed = String(value || '').trim();
-    if (!trimmed) {
-        return '';
-    }
-
-    return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
-}
+const { parseBoolean, parseCsv, parsePositiveInt } = require('../utils/env');
+const { normalizeOrigin } = require('../utils/origin');
+const { parseJwtExpiresInToMs } = require('../utils/jwt');
 
 function parseSameSite(value, fallback = 'lax') {
     const normalized = String(value || '').trim().toLowerCase();
@@ -40,45 +10,6 @@ function parseSameSite(value, fallback = 'lax') {
     }
 
     return fallback;
-}
-
-// JWT expiry strings in this project use patterns like "15m", "7d".
-function parseJwtExpiresInToMs(expiresIn) {
-    if (expiresIn === undefined || expiresIn === null) {
-        return null;
-    }
-
-    const raw = String(expiresIn).trim();
-    if (!raw) {
-        return null;
-    }
-
-    // Numeric strings: treat as seconds (jsonwebtoken behavior).
-    if (/^\d+$/.test(raw)) {
-        const seconds = Number(raw);
-        return Number.isFinite(seconds) ? seconds * 1000 : null;
-    }
-
-    const match = raw.match(/^(\d+)(ms|s|m|h|d)$/i);
-    if (!match) {
-        return null;
-    }
-
-    const amount = Number(match[1]);
-    const unit = match[2].toLowerCase();
-    if (!Number.isFinite(amount)) {
-        return null;
-    }
-
-    const multipliers = {
-        ms: 1,
-        s: 1000,
-        m: 60 * 1000,
-        h: 60 * 60 * 1000,
-        d: 24 * 60 * 60 * 1000,
-    };
-
-    return amount * (multipliers[unit] || 0);
 }
 
 const accessCookieName = process.env.ACCESS_COOKIE_NAME
@@ -121,15 +52,6 @@ const csrfRequireToken = parseBoolean(process.env.CSRF_REQUIRE_TOKEN, true);
 const authRateLimitWindowMsRaw = process.env.AUTH_RATE_LIMIT_WINDOW_MS;
 const authRateLimitWindowMs = authRateLimitWindowMsRaw ? Number(authRateLimitWindowMsRaw) : 60_000;
 const rateLimitWindowMs = Number.isFinite(authRateLimitWindowMs) ? authRateLimitWindowMs : 60_000;
-
-function parsePositiveInt(value, fallback) {
-    const parsed = value === undefined || value === null ? NaN : Number(value);
-    if (!Number.isFinite(parsed) || parsed <= 0) {
-        return fallback;
-    }
-
-    return Math.floor(parsed);
-}
 
 const rateLimit = {
     windowMs: rateLimitWindowMs,
