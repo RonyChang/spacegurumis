@@ -1,0 +1,12 @@
+/*
+Self-hosted fonts.
+
+This file is intentionally safe to ship even if you haven't downloaded fonts yet.
+To actually self-host Fraunces + IBM Plex Sans, run:
+
+  ./scripts/selfhost-fonts.sh
+
+That script will download the required `.woff2` files into `public/fonts/` and
+rewrite this file with the corresponding `@font-face` rules.
+*/
+
