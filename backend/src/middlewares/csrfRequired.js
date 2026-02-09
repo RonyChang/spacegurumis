@@ -40,12 +40,14 @@ function isMutatingMethod(method) {
 }
 
 function csrfRequired(req, res, next) {
-    // Enforce CSRF only for cookie-authenticated mutating requests.
+    // Enforce CSRF only for authenticated mutating requests (cookie-only auth).
     if (!isMutatingMethod(req.method)) {
         return next();
     }
 
-    if (req.authMethod !== 'cookie') {
+    // This middleware is expected to run after authRequired. If there's no user,
+    // treat it as unauthenticated and don't enforce CSRF here.
+    if (!req.user) {
         return next();
     }
 

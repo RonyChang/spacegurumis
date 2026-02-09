@@ -31,23 +31,15 @@ function runMiddleware(mw, req) {
     return { req, res, nextCalled };
 }
 
-test('authRequired prefers Authorization: Bearer over access cookie', () => {
-    const userA = { id: 'user-a', email: 'a@example.com', role: 'customer' };
-    const userB = { id: 'user-b', email: 'b@example.com', role: 'customer' };
+test('authRequired rejects Authorization: Bearer when access cookie is missing', () => {
+    const user = { id: 'user-a', email: 'a@example.com', role: 'customer' };
+    const bearerToken = authTokens.signToken(user, { expiresIn: '1h', tokenType: 'access' });
 
-    const bearerToken = authTokens.signToken(userA, { expiresIn: '1h', tokenType: 'access' });
-    const cookieToken = authTokens.signToken(userB, { expiresIn: '1h', tokenType: 'access' });
+    const req = { headers: { authorization: `Bearer ${bearerToken}` }, cookies: {} };
+    const { res, nextCalled } = runMiddleware(authRequired, req);
 
-    const req = {
-        headers: { authorization: `Bearer ${bearerToken}` },
-        cookies: { [security.cookies.accessCookieName]: cookieToken },
-    };
-
-    const { nextCalled } = runMiddleware(authRequired, req);
-
-    assert.equal(nextCalled, true);
-    assert.deepEqual(req.user, { id: userA.id, email: userA.email, role: userA.role });
-    assert.equal(req.authMethod, 'bearer');
+    assert.equal(nextCalled, false);
+    assert.equal(res.statusCode, 401);
 });
 
 test('authRequired accepts access cookie when Authorization header is absent', () => {
@@ -63,10 +55,9 @@ test('authRequired accepts access cookie when Authorization header is absent', (
 
     assert.equal(nextCalled, true);
     assert.deepEqual(req.user, { id: user.id, email: user.email, role: user.role });
-    assert.equal(req.authMethod, 'cookie');
 });
 
-test('authRequired returns 401 when no bearer token and no access cookie', () => {
+test('authRequired returns 401 when no access cookie is present', () => {
     const req = { headers: {}, cookies: {} };
     const { res, nextCalled } = runMiddleware(authRequired, req);
 
@@ -74,4 +65,3 @@ test('authRequired returns 401 when no bearer token and no access cookie', () =>
     assert.equal(res.statusCode, 401);
     assert.equal(res.body && res.body.message, 'No autorizado');
 });
-

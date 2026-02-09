@@ -3,7 +3,6 @@ const bcrypt = require('bcryptjs');
 const authRepository = require('../repositories/auth.repository');
 const adminTwoFactorService = require('./adminTwoFactor.service');
 const emailVerificationService = require('./emailVerification.service');
-const authTokens = require('./authTokens.service');
 
 function createError(status, message) {
     const error = new Error(message);
@@ -36,10 +35,6 @@ function buildUserResponse(user) {
         avatarUrl: user.avatarUrl || null,
         role: user.role,
     };
-}
-
-function signToken(user) {
-    return authTokens.signToken(user, { tokenType: 'access' });
 }
 
 function getGoogleConfig() {
@@ -195,10 +190,8 @@ async function loginUser({ email, password }) {
         };
     }
 
-    const token = signToken(user);
     return {
         user: buildUserResponse(user),
-        token,
     };
 }
 
@@ -254,10 +247,8 @@ async function loginWithGoogle(code) {
         user = await authRepository.updateUserEmailVerifiedAt(user.id, new Date());
     }
 
-    const token = signToken(user);
     return {
         user: buildUserResponse(user),
-        token,
     };
 }
 
@@ -292,10 +283,8 @@ async function verifyAdminTwoFactor({ email, code }) {
         throw createError(400, message);
     }
 
-    const token = signToken(user);
     return {
         user: buildUserResponse(user),
-        token,
     };
 }
 
@@ -322,10 +311,8 @@ async function verifyEmail({ email, code }) {
     }
 
     if (user.emailVerifiedAt) {
-        const token = signToken(user);
         return {
             user: buildUserResponse(user),
-            token,
         };
     }
 
@@ -338,10 +325,8 @@ async function verifyEmail({ email, code }) {
     }
 
     const updated = await authRepository.updateUserEmailVerifiedAt(user.id, new Date());
-    const token = signToken(updated || user);
     return {
         user: buildUserResponse(updated || user),
-        token,
     };
 }
 
@@ -354,7 +339,6 @@ module.exports = {
     resendVerification,
     verifyEmail,
 };
-
 
 
 

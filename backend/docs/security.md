@@ -1,11 +1,9 @@
 # Seguridad (cookie auth + CSRF + rate limit)
 
-Este backend soporta un modo transicional de autenticacion:
+Este backend usa autenticacion **solo por cookies `HttpOnly`** (mejor para SSR y reduce el riesgo de robo del token por XSS).
 
-- **Legacy (actual):** `Authorization: Bearer <jwt>`.
-- **Nuevo:** cookies `HttpOnly` (mejor para SSR y reduce el riesgo de robo del token por XSS).
-
-En ambos casos, los endpoints protegidos usan el mismo middleware `authRequired`.
+- No se acepta `Authorization: Bearer <jwt>` en endpoints protegidos.
+- El JWT de sesion vive en cookies `HttpOnly` y **no** se expone en respuestas JSON ni en URLs.
 
 ## Cookie auth (sesion via cookies)
 
@@ -15,18 +13,14 @@ En ambos casos, los endpoints protegidos usan el mismo middleware `authRequired`
 - Refresh (opcional): `REFRESH_COOKIE_NAME` (default `sg_refresh`) con JWT `HttpOnly` si `AUTH_COOKIE_REFRESH_ENABLED=true`.
 - CSRF: `CSRF_COOKIE_NAME` (default `sg_csrf`) **NO HttpOnly** para el mecanismo double-submit (ver CSRF).
 
-**Donde se setean cookies (ademas de mantener compatibilidad):**
+**Donde se setean cookies:**
 
-- `POST /api/v1/auth/login` (si devuelve `{ user, token }`).
-- `POST /api/v1/auth/verify-email` (si devuelve `{ user, token }`).
-- `POST /api/v1/auth/admin/verify-2fa` (si devuelve `{ user, token }`).
+- `POST /api/v1/auth/login`.
+- `POST /api/v1/auth/verify-email`.
+- `POST /api/v1/auth/admin/verify-2fa`.
 - `GET /api/v1/auth/google/callback` (antes de redirigir).
 - `POST /api/v1/auth/refresh` (si refresh esta habilitado).
 - `POST /api/v1/auth/logout` limpia cookies (access/refresh/csrf).
-
-**Precedencia (compatibilidad):**
-
-Si un request trae **ambos** (header + cookie), se usa primero `Authorization: Bearer ...`.
 
 ## Variables de entorno
 
@@ -67,9 +61,7 @@ Estas variables estan documentadas en `spacegurumis/backend/.env.example`.
 CSRF se aplica **solo** cuando:
 
 - El metodo es mutante: `POST`, `PUT`, `PATCH`, `DELETE`
-- Y el request se autentico por **cookie** (`req.authMethod === 'cookie'`)
-
-En modo `Authorization: Bearer`, el middleware CSRF **no bloquea**.
+- Y el request es autenticado (se ejecuta despues de `authRequired`).
 
 **Validaciones:**
 
@@ -163,18 +155,14 @@ El allowlist de CORS se puede configurar con `CORS_ALLOWED_ORIGINS` (CSV). Si no
    - Envia `X-CSRF-Token` igual al valor de cookie `sg_csrf`.
    - El mismo `POST /api/v1/orders` debe pasar la capa CSRF (si lo demas es valido).
 
-5. **Bearer auth no requiere CSRF**
-   - Envia `Authorization: Bearer <jwt>` (sin cookies) a una mutacion.
-   - Debe pasar CSRF (si lo demas es valido).
-
-6. **Rate limit 429**
+5. **Rate limit 429**
    - Repite `POST /api/v1/auth/login` mas veces que `AUTH_RATE_LIMIT_LOGIN_MAX` dentro de la ventana.
    - Debe responder `429` y tener `Retry-After`.
 
-7. **Google OAuth**
+6. **Google OAuth**
    - Completa el flujo `GET /api/v1/auth/google`.
-   - En el callback, verifica que setea cookies y redirige a `/login#token=...`.
+   - En el callback, verifica que setea cookies y redirige a `/login` **sin** `token` en query/hash.
 
-8. **Admin 2FA**
+7. **Admin 2FA**
    - Login con admin -> debe pedir 2FA.
    - `POST /api/v1/auth/admin/verify-2fa` debe setear cookies.

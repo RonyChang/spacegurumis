@@ -125,7 +125,7 @@ async function login(req, res, next) {
         }
 
         const result = await authService.loginUser({ email, password });
-        if (result && result.token && result.user) {
+        if (result && result.user) {
             const accessToken = authTokens.signToken(result.user, {
                 expiresIn: security.cookies.accessExpiresIn,
                 tokenType: 'access',
@@ -164,7 +164,7 @@ async function verifyEmail(req, res, next) {
         }
 
         const result = await authService.verifyEmail({ email, code });
-        if (result && result.token && result.user) {
+        if (result && result.user) {
             const accessToken = authTokens.signToken(result.user, {
                 expiresIn: security.cookies.accessExpiresIn,
                 tokenType: 'access',
@@ -203,7 +203,7 @@ async function verifyAdminTwoFactor(req, res, next) {
         }
 
         const result = await authService.verifyAdminTwoFactor({ email, code });
-        if (result && result.token && result.user) {
+        if (result && result.user) {
             const accessToken = authTokens.signToken(result.user, {
                 expiresIn: security.cookies.accessExpiresIn,
                 tokenType: 'access',
@@ -282,7 +282,7 @@ async function googleCallback(req, res, next) {
         }
 
         const result = await authService.loginWithGoogle(code);
-        if (result && result.token && result.user) {
+        if (result && result.user) {
             const accessToken = authTokens.signToken(result.user, {
                 expiresIn: security.cookies.accessExpiresIn,
                 tokenType: 'access',
@@ -297,7 +297,6 @@ async function googleCallback(req, res, next) {
         }
         if (frontendBaseUrl) {
             const url = new URL('/login', frontendBaseUrl);
-            url.hash = `token=${encodeURIComponent(result.token)}`;
             return res.redirect(url.toString());
         }
 

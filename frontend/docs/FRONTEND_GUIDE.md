@@ -134,7 +134,7 @@ Auth
 - [ ] `/login` login ok -> `/profile`
 - [ ] login con email no verificado -> `/verify`
 - [ ] login admin -> `/admin-2fa`
-- [ ] "Continuar con Google" inicia OAuth y vuelve a `/login` (puede incluir `#token=...`, pero el frontend lo limpia y valida sesion via cookies)
+- [ ] "Continuar con Google" inicia OAuth y vuelve a `/login` (sin `#token=...`; el frontend valida sesion via cookies)
 - [ ] logout: `POST /api/v1/auth/logout` limpia cookies y vuelve a estado logged-out
 
 Carrito + descuentos + ordenes

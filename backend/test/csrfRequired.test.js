@@ -34,15 +34,14 @@ function runMiddleware(mw, req) {
 }
 
 test('csrfRequired does not block non-mutating methods', () => {
-    const req = { method: 'GET', authMethod: 'cookie', headers: {}, cookies: {} };
+    const req = { method: 'GET', user: { id: 'u', email: 'u@example.com', role: 'customer' }, headers: {}, cookies: {} };
     const { nextCalled } = runMiddleware(csrfRequired, req);
     assert.equal(nextCalled, true);
 });
 
-test('csrfRequired does not block bearer-authenticated mutating requests', () => {
+test('csrfRequired does not block unauthenticated mutating requests', () => {
     const req = {
         method: 'POST',
-        authMethod: 'bearer',
         headers: { origin: 'https://evil.example' },
         cookies: {},
     };
@@ -53,7 +52,7 @@ test('csrfRequired does not block bearer-authenticated mutating requests', () =>
 test('csrfRequired rejects cookie-authenticated mutating requests with invalid origin', () => {
     const req = {
         method: 'POST',
-        authMethod: 'cookie',
+        user: { id: 'u', email: 'u@example.com', role: 'customer' },
         headers: { origin: 'https://evil.example' },
         cookies: { [security.cookies.csrfCookieName]: 'abc' },
     };
@@ -66,7 +65,7 @@ test('csrfRequired rejects cookie-authenticated mutating requests with invalid o
 test('csrfRequired rejects cookie-authenticated mutating requests missing CSRF header', () => {
     const req = {
         method: 'POST',
-        authMethod: 'cookie',
+        user: { id: 'u', email: 'u@example.com', role: 'customer' },
         headers: { origin: 'http://localhost:4321' },
         cookies: { [security.cookies.csrfCookieName]: 'abc' },
     };
@@ -78,11 +77,10 @@ test('csrfRequired rejects cookie-authenticated mutating requests missing CSRF h
 test('csrfRequired passes when origin is allowed and CSRF cookie/header match', () => {
     const req = {
         method: 'POST',
-        authMethod: 'cookie',
+        user: { id: 'u', email: 'u@example.com', role: 'customer' },
         headers: { origin: 'http://localhost:4321', 'x-csrf-token': 'abc' },
         cookies: { [security.cookies.csrfCookieName]: 'abc' },
     };
     const { nextCalled } = runMiddleware(csrfRequired, req);
     assert.equal(nextCalled, true);
 });
-
