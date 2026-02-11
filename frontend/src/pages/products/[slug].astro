@@ -1,0 +1,15 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ProductDetailPage from '../../components/pages/ProductDetailPage';
+
+const slug = typeof Astro.params.slug === 'string' ? Astro.params.slug : '';
+const safeSlug = slug.trim();
+
+if (!safeSlug) {
+    return Astro.redirect('/');
+}
+---
+
+<BaseLayout title={`Spacegurumis | ${safeSlug}`}>
+    <ProductDetailPage slug={safeSlug} client:load />
+</BaseLayout>

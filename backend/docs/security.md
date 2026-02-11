@@ -119,6 +119,20 @@ El middleware `spacegurumis/backend/src/middlewares/securityHeaders.js` agrega h
 
 En produccion, normalmente se agrega **HSTS** a nivel de reverse proxy (Nginx/Dokploy) en vez de la app.
 
+## Admin routes hardening
+
+Las rutas de administracion (`/api/v1/admin/*`) usan doble control:
+
+- autenticacion por cookie (`authRequired`)
+- autorizacion por rol (`adminRequired`)
+
+Adicionalmente, mutaciones admin (`POST/PATCH/DELETE`) usan `csrfRequired`.
+
+Endpoints principales documentados en:
+
+- `spacegurumis/backend/docs/admin-console-api.md`
+- `spacegurumis/backend/docs/r2-product-images.md` (imagenes de variantes y site assets)
+
 ## Reverse proxy (Dokploy/Nginx)
 
 Recomendacion en produccion:

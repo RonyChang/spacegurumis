@@ -36,7 +36,9 @@ Nota: muchas pantallas privadas siguen usando **guard client-side** (por simplic
 ## 3) Rutas
 
 Rutas principales (paridad con el frontend anterior):
-- `/` catálogo + detalle (en la misma pagina)
+- `/` catalogo (listado de variantes)
+- `/products/[slug]` detalle publico por producto (admite `?sku=<sku>`)
+- `/admin` consola admin (guard client-side por sesion+rol)
 - `/login`
 - `/register`
 - `/verify`
@@ -135,8 +137,17 @@ Headers recomendados:
 
 Catalogo
 - [ ] `/` lista variantes (paginacion funciona)
-- [ ] ver detalle por SKU desde "Ver detalle"
+- [ ] "Ver detalle" navega a `/products/<slug>?sku=<sku>`
+- [ ] `/products/<slug>` carga detalle (galeria, precio, stock, descripcion)
+- [ ] cambiar variante actualiza `?sku=` y recarga detalle de variante
 - [ ] agregar al carrito como guest (se refleja en `/cart`)
+
+Admin
+- [ ] `/admin` bloquea usuarios no autenticados/no-admin
+- [ ] `/admin` con usuario admin muestra panel de usuarios+catalogo
+- [ ] crear admin desde panel refresca listado
+- [ ] crear producto+variante inicial desde panel funciona
+- [ ] cargar/registrar imagen de variante desde panel funciona
 
 Auth
 - [ ] `/register` -> redirige a `/verify`
@@ -163,3 +174,4 @@ Pedidos
 Seguridad (manual)
 - [ ] en DevTools > Network: requests no envian `Authorization: Bearer ...`
 - [ ] en DevTools > Network: requests mutables incluyen `X-CSRF-Token` y no fallan por CSRF
+- [ ] `/admin` no renderiza formularios cuando el rol no es `admin`

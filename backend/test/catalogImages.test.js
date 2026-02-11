@@ -122,6 +122,40 @@ test('catalog.controller.getProductDetail returns non-empty ordered images array
     }
 });
 
+test('catalog.controller.getProductDetail includes variants summary for detail page selection', async () => {
+    const originalGetProductBySlug = catalogService.getProductBySlug;
+
+    try {
+        catalogService.getProductBySlug = async () => ({
+            id: 10,
+            name: 'Amigurumi',
+            slug: 'amigurumi',
+            description: 'desc',
+            category: { id: 20, name: 'Peluche', slug: 'peluche' },
+            images: [{ url: 'https://assets.spacegurumis.lat/variants/1/a.webp', altText: 'A', sortOrder: 0 }],
+            variants: [
+                { id: 1, sku: 'SKU-RED', variantName: 'Rojo', price: 49.9, stockAvailable: 8 },
+                { id: 2, sku: 'SKU-BLUE', variantName: 'Azul', price: 52.5, stockAvailable: 3 },
+            ],
+        });
+
+        const req = { params: { slug: 'amigurumi' } };
+        const res = makeRes();
+        const next = () => {
+            throw new Error('next should not be called');
+        };
+
+        await catalogController.getProductDetail(req, res, next);
+
+        assert.equal(res.statusCode, 200);
+        assert.equal(Array.isArray(res.payload.data.variants), true);
+        assert.deepEqual(res.payload.data.variants.map((item) => item.sku), ['SKU-RED', 'SKU-BLUE']);
+        assert.deepEqual(res.payload.data.variants.map((item) => item.stockAvailable), [8, 3]);
+    } finally {
+        catalogService.getProductBySlug = originalGetProductBySlug;
+    }
+});
+
 test('catalog.controller.getProductDetail returns empty images array when gallery is unavailable', async () => {
     const originalGetProductBySlug = catalogService.getProductBySlug;
 

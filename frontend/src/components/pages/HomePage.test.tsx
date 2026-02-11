@@ -1,18 +1,16 @@
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import HomePage from './HomePage';
 
 const listCatalogVariantsMock = vi.fn();
-const getCatalogVariantDetailMock = vi.fn();
 const listSiteAssetsBySlotMock = vi.fn();
 const addCartItemMock = vi.fn();
 const writeGuestCartMock = vi.fn();
 
 vi.mock('../../lib/api/catalog', () => ({
     listCatalogVariants: (...args: unknown[]) => listCatalogVariantsMock(...args),
-    getCatalogVariantDetail: (...args: unknown[]) => getCatalogVariantDetailMock(...args),
 }));
 
 vi.mock('../../lib/api/siteAssets', () => ({
@@ -42,26 +40,6 @@ function makeVariant(overrides: Record<string, unknown> = {}) {
     };
 }
 
-function makeDetail(overrides: Record<string, unknown> = {}) {
-    return {
-        ...makeVariant(),
-        product: { id: 99, name: 'Amigurumi', slug: 'amigurumi', description: 'Peluche tejido' },
-        images: [
-            {
-                url: 'https://assets.spacegurumis.lat/variants/1/red-main.webp',
-                altText: 'Principal',
-                sortOrder: 0,
-            },
-            {
-                url: 'https://assets.spacegurumis.lat/variants/1/red-side.webp',
-                altText: 'Lateral',
-                sortOrder: 1,
-            },
-        ],
-        ...overrides,
-    };
-}
-
 beforeEach(() => {
     vi.clearAllMocks();
     addCartItemMock.mockResolvedValue({});
@@ -70,12 +48,6 @@ beforeEach(() => {
         message: 'OK',
         errors: [],
         meta: { total: 1, page: 1, pageSize: 9, totalPages: 1 },
-    });
-    getCatalogVariantDetailMock.mockResolvedValue({
-        data: makeDetail(),
-        message: 'OK',
-        errors: [],
-        meta: {},
     });
     listSiteAssetsBySlotMock.mockImplementation(async (slot: string) => ({
         data: [{
@@ -127,6 +99,13 @@ test('falls back to placeholder image when imageUrl is null', async () => {
     expect(thumb).toHaveAttribute('src', '/placeholder-product.svg');
 });
 
+test('detail action points to dedicated product detail route with sku query', async () => {
+    render(<HomePage />);
+
+    const detailLink = await screen.findByRole('link', { name: 'Ver detalle' });
+    expect(detailLink).toHaveAttribute('href', '/products/amigurumi?sku=SKU-RED');
+});
+
 test('uses decorative fallback assets when site-assets API fails', async () => {
     listSiteAssetsBySlotMock.mockRejectedValueOnce(new Error('network'));
     listSiteAssetsBySlotMock.mockRejectedValueOnce(new Error('network'));
@@ -138,25 +117,4 @@ test('uses decorative fallback assets when site-assets API fails', async () => {
 
     const banner = await screen.findByRole('img', { name: 'Nuevos modelos de amigurumis' });
     expect(banner).toHaveAttribute('src', '/site-fallback-banner.svg');
-});
-
-test('renders gallery images after loading variant detail', async () => {
-    const { container } = render(<HomePage />);
-
-    const detailButton = await screen.findByRole('button', { name: 'Ver detalle' });
-    fireEvent.click(detailButton);
-
-    await waitFor(() => {
-        expect(getCatalogVariantDetailMock).toHaveBeenCalledWith('SKU-RED');
-    });
-
-    await waitFor(() => {
-        const main = container.querySelector('.gallery__main img');
-        expect(main).toBeTruthy();
-        expect(main).toHaveAttribute('src', 'https://assets.spacegurumis.lat/variants/1/red-main.webp');
-    });
-
-    const second = container.querySelector('.gallery__thumb[alt="Lateral"]');
-    expect(second).toBeTruthy();
-    expect(second).toHaveAttribute('src', 'https://assets.spacegurumis.lat/variants/1/red-side.webp');
 });

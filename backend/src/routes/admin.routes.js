@@ -1,5 +1,7 @@
 const express = require('express');
 const adminController = require('../controllers/admin.controller');
+const adminUsersController = require('../controllers/adminUsers.controller');
+const adminCatalogController = require('../controllers/adminCatalog.controller');
 const productImagesController = require('../controllers/productImages.controller');
 const siteAssetsController = require('../controllers/siteAssets.controller');
 const authRequired = require('../middlewares/authRequired');
@@ -9,6 +11,70 @@ const csrfRequired = require('../middlewares/csrfRequired');
 const router = express.Router();
 
 router.get('/api/v1/admin/orders', authRequired, adminRequired, adminController.listOrders);
+
+// Admin users
+router.get(
+    '/api/v1/admin/users',
+    authRequired,
+    adminRequired,
+    adminUsersController.list
+);
+router.post(
+    '/api/v1/admin/users',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminUsersController.create
+);
+
+// Admin catalog
+router.get(
+    '/api/v1/admin/catalog/categories',
+    authRequired,
+    adminRequired,
+    adminCatalogController.listCategories
+);
+router.get(
+    '/api/v1/admin/catalog/products',
+    authRequired,
+    adminRequired,
+    adminCatalogController.listProducts
+);
+router.post(
+    '/api/v1/admin/catalog/products',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.createProduct
+);
+router.patch(
+    '/api/v1/admin/catalog/products/:id',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.updateProduct
+);
+router.post(
+    '/api/v1/admin/catalog/products/:id/variants',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.createVariant
+);
+router.patch(
+    '/api/v1/admin/catalog/variants/:id',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.updateVariant
+);
+router.patch(
+    '/api/v1/admin/catalog/variants/:id/stock',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.updateVariantStock
+);
 
 // Product images (R2)
 router.post(
