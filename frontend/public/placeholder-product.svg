@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 800" role="img" aria-label="Imagen no disponible">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#f2efe9"/>
+      <stop offset="1" stop-color="#f6f4f0"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#111827" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#111827" stop-opacity="0.04"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="640" height="800" fill="url(#bg)"/>
+  <rect x="64" y="96" width="512" height="608" rx="40" fill="#ffffff" opacity="0.75"/>
+  <rect x="96" y="128" width="448" height="384" rx="28" fill="url(#accent)"/>
+
+  <!-- Simple plush-like icon -->
+  <g fill="none" stroke="#111827" stroke-opacity="0.55" stroke-width="18" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="320" cy="300" r="88"/>
+    <path d="M264 278c18-18 38-18 56 0"/>
+    <path d="M320 278c18-18 38-18 56 0"/>
+    <path d="M290 330c18 18 42 18 60 0"/>
+    <path d="M244 366c-42 26-70 70-70 120"/>
+    <path d="M396 366c42 26 70 70 70 120"/>
+  </g>
+
+  <text x="320" y="610" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial" font-size="26" fill="#111827" fill-opacity="0.55">
+    Imagen no disponible
+  </text>
+</svg>
+

@@ -1,5 +1,6 @@
 const express = require('express');
 const adminController = require('../controllers/admin.controller');
+const productImagesController = require('../controllers/productImages.controller');
 const authRequired = require('../middlewares/authRequired');
 const adminRequired = require('../middlewares/adminRequired');
 const csrfRequired = require('../middlewares/csrfRequired');
@@ -7,6 +8,42 @@ const csrfRequired = require('../middlewares/csrfRequired');
 const router = express.Router();
 
 router.get('/api/v1/admin/orders', authRequired, adminRequired, adminController.listOrders);
+
+// Product images (R2)
+router.post(
+    '/api/v1/admin/products/:id/images/presign',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    productImagesController.presign
+);
+router.post(
+    '/api/v1/admin/products/:id/images',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    productImagesController.register
+);
+router.get(
+    '/api/v1/admin/products/:id/images',
+    authRequired,
+    adminRequired,
+    productImagesController.list
+);
+router.patch(
+    '/api/v1/admin/products/:id/images/:imageId',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    productImagesController.update
+);
+router.delete(
+    '/api/v1/admin/products/:id/images/:imageId',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    productImagesController.remove
+);
 router.patch(
     '/api/v1/admin/orders/:id/status',
     authRequired,

@@ -67,6 +67,7 @@ async function listVariants(filters, pagination) {
             variantName: row.variantName,
             price: centsToSoles(row.priceCents),
             stockAvailable,
+            imageUrl: row.imageUrl || null,
             product: {
                 id: row.productId,
                 name: row.productName,
@@ -122,6 +123,7 @@ async function getProductBySlug(slug) {
             name: productRow.categoryName,
             slug: productRow.categorySlug,
         },
+        images: Array.isArray(productRow.images) ? productRow.images : [],
         variants,
     };
 }
@@ -151,6 +153,7 @@ async function getVariantBySku(sku) {
             name: row.categoryName,
             slug: row.categorySlug,
         },
+        images: Array.isArray(row.images) ? row.images : [],
     };
 }
 

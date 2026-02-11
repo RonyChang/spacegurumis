@@ -15,6 +15,15 @@ import Button from '../ui/Button';
 
 const CATALOG_PAGE_SIZE = 9;
 
+function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
+    const img = event.currentTarget;
+    if (img.dataset.fallbackApplied === '1') {
+        return;
+    }
+    img.dataset.fallbackApplied = '1';
+    img.src = '/placeholder-product.svg';
+}
+
 export default function HomePage() {
     const [status, setStatus] = useState<'idle' | 'loading'>('idle');
     const [error, setError] = useState('');
@@ -119,6 +128,13 @@ export default function HomePage() {
         return buildWhatsappUrl(messageText);
     }, [selected]);
 
+    const selectedImages = useMemo(() => {
+        if (!selected || !Array.isArray(selected.images)) {
+            return [];
+        }
+        return selected.images.filter((img) => img && img.url);
+    }, [selected]);
+
     return (
         <section className="surface page">
             <div className="page__header">
@@ -137,6 +153,15 @@ export default function HomePage() {
             <div className="grid grid--cards catalog">
                 {variants.map((variant) => (
                     <article className="card" key={variant.sku}>
+                        <div className="card__thumb">
+                            <img
+                                src={variant.imageUrl || '/placeholder-product.svg'}
+                                alt={formatVariantTitle(variant)}
+                                loading="lazy"
+                                decoding="async"
+                                onError={imgErrorToPlaceholder}
+                            />
+                        </div>
                         <h3 className="card__title">{formatVariantTitle(variant)}</h3>
                         <p className="card__meta">SKU: {variant.sku}</p>
                         <p className="card__price">{formatPrice(variant.price)}</p>
@@ -194,6 +219,32 @@ export default function HomePage() {
 
                 {detailStatus === 'idle' && selected ? (
                     <div className="detail__content">
+                        <div className="gallery">
+                            <div className="gallery__main">
+                                <img
+                                    src={selectedImages[0]?.url || '/placeholder-product.svg'}
+                                    alt={selectedImages[0]?.altText || formatVariantTitle(selected)}
+                                    loading="lazy"
+                                    decoding="async"
+                                    onError={imgErrorToPlaceholder}
+                                />
+                            </div>
+                            {selectedImages.length > 1 ? (
+                                <div className="gallery__thumbs">
+                                    {selectedImages.map((image) => (
+                                        <img
+                                            key={image.url}
+                                            className="gallery__thumb"
+                                            src={image.url}
+                                            alt={image.altText || formatVariantTitle(selected)}
+                                            loading="lazy"
+                                            decoding="async"
+                                            onError={imgErrorToPlaceholder}
+                                        />
+                                    ))}
+                                </div>
+                            ) : null}
+                        </div>
                         <h3 className="detail__title">{formatVariantTitle(selected)}</h3>
                         <p className="muted">SKU: {selected.sku}</p>
                         <p className="detail__price">{formatPrice(selected.price)}</p>

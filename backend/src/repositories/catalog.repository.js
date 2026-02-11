@@ -5,6 +5,7 @@ const {
     ProductVariant,
     Inventory,
 } = require('../models');
+const productImagesRepository = require('./productImages.repository');
 
 async function fetchActiveCategories() {
     const rows = await Category.findAll({
@@ -183,7 +184,7 @@ async function fetchActiveVariants(filters, pagination) {
         subQuery: false,
     });
 
-    return rows.map((row) => {
+    const mapped = rows.map((row) => {
         const inventory = row.inventory || {};
         return {
             id: row.id,
@@ -200,6 +201,14 @@ async function fetchActiveVariants(filters, pagination) {
             categorySlug: row.product && row.product.category ? row.product.category.slug : null,
         };
     });
+
+    const productIds = mapped.map((item) => item.productId).filter(Boolean);
+    const primaryImageUrls = await productImagesRepository.fetchPrimaryImageUrls(productIds);
+
+    return mapped.map((item) => ({
+        ...item,
+        imageUrl: item.productId ? primaryImageUrls.get(item.productId) || null : null,
+    }));
 }
 
 async function fetchActiveVariantsCount(filters) {
@@ -257,6 +266,11 @@ async function fetchProductBySlug(slug) {
         categoryId: product.category ? product.category.id : null,
         categoryName: product.category ? product.category.name : null,
         categorySlug: product.category ? product.category.slug : null,
+        images: (await productImagesRepository.listProductImages(product.id)).map((img) => ({
+            url: img.publicUrl,
+            altText: img.altText || null,
+            sortOrder: Number.isFinite(Number(img.sortOrder)) ? Number(img.sortOrder) : null,
+        })),
     };
 }
 
@@ -312,6 +326,11 @@ async function fetchVariantBySku(sku) {
         categorySlug: variant.product && variant.product.category
             ? variant.product.category.slug
             : null,
+        images: (await productImagesRepository.listProductImages(variant.product.id)).map((img) => ({
+            url: img.publicUrl,
+            altText: img.altText || null,
+            sortOrder: Number.isFinite(Number(img.sortOrder)) ? Number(img.sortOrder) : null,
+        })),
     };
 }
 

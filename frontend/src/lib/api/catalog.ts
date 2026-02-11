@@ -23,14 +23,22 @@ export type CatalogVariant = {
     id: number;
     sku: string;
     variantName: string | null;
+    imageUrl?: string | null;
     price: number | null;
     stockAvailable: number;
     product: CatalogProductLite;
     category: CatalogCategory;
 };
 
+export type CatalogImage = {
+    url: string;
+    altText: string | null;
+    sortOrder: number | null;
+};
+
 export type CatalogVariantDetail = CatalogVariant & {
     product: CatalogProductLite & { description: string | null };
+    images?: CatalogImage[];
 };
 
 export function listCatalogVariants(page: number, pageSize: number) {
@@ -45,4 +53,3 @@ export function listCatalogVariants(page: number, pageSize: number) {
 export function getCatalogVariantDetail(sku: string) {
     return apiGet<CatalogVariantDetail>(`/api/v1/catalog/variants/${encodeURIComponent(sku)}`);
 }
-
