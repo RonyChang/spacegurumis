@@ -308,6 +308,63 @@ const ProductVariantImage = sequelize.define('ProductVariantImage', {
     tableName: 'product_variant_images',
 });
 
+const SiteAsset = sequelize.define('SiteAsset', {
+    id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true,
+        autoIncrement: true,
+    },
+    slot: {
+        type: DataTypes.STRING(120),
+        allowNull: false,
+    },
+    title: {
+        type: DataTypes.STRING(160),
+        allowNull: true,
+    },
+    altText: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+    },
+    imageKey: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        unique: true,
+    },
+    publicUrl: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+    },
+    contentType: {
+        type: DataTypes.STRING(120),
+        allowNull: false,
+    },
+    byteSize: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    sortOrder: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+    },
+    isActive: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: true,
+    },
+    startsAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
+    endsAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+    },
+}, {
+    tableName: 'site_assets',
+});
+
 const ProductVariant = sequelize.define('ProductVariant', {
     id: {
         type: DataTypes.BIGINT,
@@ -647,6 +704,7 @@ module.exports = {
     Product,
     ProductImage,
     ProductVariantImage,
+    SiteAsset,
     ProductVariant,
     Inventory,
     Cart,

@@ -7,7 +7,7 @@ const productImagesService = require('../src/services/productImages.service');
 const r2 = require('../src/config/r2');
 const r2Service = require('../src/services/r2.service');
 const productImagesRepository = require('../src/repositories/productImages.repository');
-const { ProductVariant } = require('../src/models');
+const { ProductVariant, ProductVariantImage } = require('../src/models');
 
 function makeRes() {
     return {
@@ -223,5 +223,135 @@ test('registerProductImage rejects invalid byteSize', async () => {
     } finally {
         ProductVariant.findByPk = originalFindByPk;
         r2.publicBaseUrl = originalPublicBaseUrl;
+    }
+});
+
+test('registerProductImage rejects missing R2 object and does not persist', async () => {
+    const originalFindByPk = ProductVariant.findByPk;
+    const originalHead = r2Service.headPublicObject;
+    const originalCreate = productImagesRepository.createProductImage;
+    const originalPublicBaseUrl = r2.publicBaseUrl;
+    let createCalls = 0;
+
+    try {
+        ProductVariant.findByPk = async (id) => ({
+            get() {
+                return { id };
+            },
+        });
+        r2.publicBaseUrl = 'https://assets.example.com';
+        r2Service.headPublicObject = async () => ({ exists: false, status: 404 });
+        productImagesRepository.createProductImage = async (data) => {
+            createCalls += 1;
+            return data;
+        };
+
+        const res = await productImagesService.registerProductImage(123, {
+            imageKey: 'variants/123/missing.webp',
+            contentType: 'image/webp',
+            byteSize: 123,
+        });
+
+        assert.equal(res.error, 'bad_request');
+        assert.match(String(res.message || ''), /no existe en r2/i);
+        assert.equal(createCalls, 0);
+    } finally {
+        ProductVariant.findByPk = originalFindByPk;
+        r2Service.headPublicObject = originalHead;
+        productImagesRepository.createProductImage = originalCreate;
+        r2.publicBaseUrl = originalPublicBaseUrl;
+    }
+});
+
+test('productImages.repository.listProductImages uses stable order by sortOrder then id', async () => {
+    const originalFindAll = ProductVariantImage.findAll;
+    let capturedOptions = null;
+
+    try {
+        ProductVariantImage.findAll = async (options) => {
+            capturedOptions = options;
+            return [];
+        };
+
+        const items = await productImagesRepository.listProductImages(123);
+        assert.deepEqual(items, []);
+        assert.deepEqual(capturedOptions && capturedOptions.where, { productVariantId: 123 });
+        assert.deepEqual(capturedOptions && capturedOptions.order, [['sortOrder', 'ASC'], ['id', 'ASC']]);
+    } finally {
+        ProductVariantImage.findAll = originalFindAll;
+    }
+});
+
+test('product image service list/update/delete keeps metadata and removes deleted rows', async () => {
+    const originalFindByPk = ProductVariant.findByPk;
+    const originalList = productImagesRepository.listProductImages;
+    const originalUpdate = productImagesRepository.updateProductImage;
+    const originalDelete = productImagesRepository.deleteProductImage;
+
+    const rows = [
+        { id: 11, productVariantId: 123, altText: 'B', sortOrder: 1 },
+        { id: 10, productVariantId: 123, altText: 'A', sortOrder: 1 },
+        { id: 9, productVariantId: 123, altText: 'C', sortOrder: 0 },
+    ];
+
+    function ordered() {
+        return rows
+            .slice()
+            .sort((a, b) => (a.sortOrder - b.sortOrder) || (a.id - b.id))
+            .map((item) => ({ ...item }));
+    }
+
+    try {
+        ProductVariant.findByPk = async (id) => ({
+            get() {
+                return { id };
+            },
+        });
+        productImagesRepository.listProductImages = async () => ordered();
+        productImagesRepository.updateProductImage = async (variantId, imageId, patch) => {
+            const index = rows.findIndex((item) => item.productVariantId === variantId && item.id === imageId);
+            if (index < 0) {
+                return null;
+            }
+            if (Object.prototype.hasOwnProperty.call(patch, 'altText')) {
+                rows[index].altText = patch.altText === null ? null : String(patch.altText || '');
+            }
+            if (Object.prototype.hasOwnProperty.call(patch, 'sortOrder')) {
+                rows[index].sortOrder = patch.sortOrder;
+            }
+            return { ...rows[index] };
+        };
+        productImagesRepository.deleteProductImage = async (variantId, imageId) => {
+            const index = rows.findIndex((item) => item.productVariantId === variantId && item.id === imageId);
+            if (index < 0) {
+                return false;
+            }
+            rows.splice(index, 1);
+            return true;
+        };
+
+        const before = await productImagesService.listProductImages(123);
+        assert.deepEqual(before.data.map((item) => item.id), [9, 10, 11]);
+
+        const updatedAlt = await productImagesService.updateProductImage(123, 10, { altText: 'Actualizado' });
+        assert.equal(updatedAlt.error, undefined);
+        const afterAlt = await productImagesService.listProductImages(123);
+        assert.equal(afterAlt.data.find((item) => item.id === 10).altText, 'Actualizado');
+
+        const updatedOrder = await productImagesService.updateProductImage(123, 11, { sortOrder: 0 });
+        assert.equal(updatedOrder.error, undefined);
+        const afterOrder = await productImagesService.listProductImages(123);
+        assert.deepEqual(afterOrder.data.map((item) => item.id), [9, 11, 10]);
+
+        const removed = await productImagesService.removeProductImage(123, 10);
+        assert.equal(removed.error, undefined);
+        assert.deepEqual(removed.data, { deleted: true });
+        const afterDelete = await productImagesService.listProductImages(123);
+        assert.deepEqual(afterDelete.data.map((item) => item.id), [9, 11]);
+    } finally {
+        ProductVariant.findByPk = originalFindByPk;
+        productImagesRepository.listProductImages = originalList;
+        productImagesRepository.updateProductImage = originalUpdate;
+        productImagesRepository.deleteProductImage = originalDelete;
     }
 });

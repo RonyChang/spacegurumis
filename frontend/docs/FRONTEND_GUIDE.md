@@ -45,6 +45,16 @@ Rutas principales (paridad con el frontend anterior):
 - `/cart`
 - `/orders`
 
+### Decoracion dinamica en Home
+
+La portada (`/`) consume assets decorativos por slot desde backend:
+- `GET /api/v1/site-assets/home-hero`
+- `GET /api/v1/site-assets/home-banner`
+
+Comportamiento:
+- Si la API retorna datos: se renderizan imagenes remotas (R2) ordenadas.
+- Si falla la API o retorna vacio: se usan fallbacks locales (`/site-fallback-hero.svg` y `/site-fallback-banner.svg`).
+
 ## 4) Variables de entorno (.env) y `PUBLIC_*`
 
 Astro expone al navegador solo variables que empiezan con `PUBLIC_`.

@@ -67,4 +67,32 @@ BEGIN
     END IF;
 END $$;
 
+CREATE TABLE IF NOT EXISTS site_assets (
+    id BIGSERIAL PRIMARY KEY,
+    slot VARCHAR(120) NOT NULL,
+    title VARCHAR(160),
+    alt_text TEXT,
+    image_key TEXT NOT NULL UNIQUE,
+    public_url TEXT NOT NULL,
+    content_type VARCHAR(120) NOT NULL,
+    byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+    sort_order INTEGER NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    starts_at TIMESTAMPTZ,
+    ends_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT site_assets_slot_not_blank CHECK (char_length(btrim(slot)) > 0),
+    CONSTRAINT site_assets_window_valid CHECK (starts_at IS NULL OR ends_at IS NULL OR starts_at <= ends_at)
+);
+
+CREATE INDEX IF NOT EXISTS site_assets_slot_idx
+    ON site_assets(slot);
+
+CREATE INDEX IF NOT EXISTS site_assets_slot_order_idx
+    ON site_assets(slot, sort_order, id);
+
+CREATE INDEX IF NOT EXISTS site_assets_slot_active_window_idx
+    ON site_assets(slot, is_active, starts_at, ends_at);
+
 COMMIT;

@@ -76,6 +76,30 @@ function buildImageKey(variantId, contentType) {
     return `variants/${id}/${uuid}.${extension}`;
 }
 
+function normalizeSlotForKey(slot) {
+    return String(slot || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-]+/g, '-')
+        .replace(/^-+/, '')
+        .replace(/-+$/, '');
+}
+
+function buildSiteAssetKey(slot, contentType) {
+    const normalizedSlot = normalizeSlotForKey(slot);
+    if (!normalizedSlot) {
+        throw new Error('slot invalido');
+    }
+
+    const extension = contentTypeToExtension(contentType);
+    if (!extension) {
+        throw new Error('contentType no permitido');
+    }
+
+    const uuid = crypto.randomUUID();
+    return `site/${normalizedSlot}/${uuid}.${extension}`;
+}
+
 function buildPublicUrl(publicBaseUrl, imageKey) {
     const base = String(publicBaseUrl || '').trim().replace(/\/+$/, '');
     if (!base) {
@@ -269,14 +293,47 @@ function presignVariantImageUpload({ variantId, contentType, byteSize }) {
     };
 }
 
+function presignSiteAssetUpload({ slot, contentType, byteSize }) {
+    const validation = validateImageUploadRequest({ contentType, byteSize });
+    if (!validation.ok) {
+        const err = new Error(validation.error || 'Solicitud invalida');
+        err.status = 400;
+        throw err;
+    }
+
+    const imageKey = buildSiteAssetKey(slot, contentType);
+    const publicUrl = buildPublicUrl(r2.publicBaseUrl, imageKey);
+
+    const presigned = presignPutObject({
+        endpoint: r2.endpoint,
+        bucket: r2.bucket,
+        key: imageKey,
+        accessKeyId: r2.accessKeyId,
+        secretAccessKey: r2.secretAccessKey,
+        region: r2.region,
+        expiresInSeconds: r2.presignExpiresSeconds,
+        contentType,
+    });
+
+    return {
+        uploadUrl: presigned.uploadUrl,
+        imageKey,
+        publicUrl,
+        expiresInSeconds: presigned.expiresInSeconds,
+        headers: presigned.headers,
+    };
+}
+
 module.exports = {
     clampExpiresSeconds,
     contentTypeToExtension,
     buildImageKey,
+    buildSiteAssetKey,
     buildPublicUrl,
     validateImageUploadRequest,
     presignPutObject,
     presignVariantImageUpload,
+    presignSiteAssetUpload,
     // Backward-compatible alias.
     presignProductImageUpload: presignVariantImageUpload,
     headPublicObject,

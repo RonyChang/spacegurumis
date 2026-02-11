@@ -15,6 +15,7 @@ const discountRoutes = require('./routes/discount.routes');
 const paymentRoutes = require('./routes/payment.routes');
 const stripeWebhookRoutes = require('./routes/stripeWebhook.routes');
 const adminRoutes = require('./routes/admin.routes');
+const siteAssetsRoutes = require('./routes/siteAssets.routes');
 const notFound = require('./middlewares/notFound');
 const errorHandler = require('./middlewares/errorHandler');
 const cookieParser = require('./middlewares/cookieParser');
@@ -85,6 +86,7 @@ app.use(cartRoutes);
 app.use(orderRoutes);
 app.use(discountRoutes);
 app.use(paymentRoutes);
+app.use(siteAssetsRoutes);
 app.use(adminRoutes);
 
 app.use(notFound);

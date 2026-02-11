@@ -88,6 +88,70 @@ test('catalog.controller.getVariantDetail returns images array', async () => {
     }
 });
 
+test('catalog.controller.getProductDetail returns non-empty ordered images array', async () => {
+    const originalGetProductBySlug = catalogService.getProductBySlug;
+
+    try {
+        catalogService.getProductBySlug = async () => ({
+            id: 10,
+            name: 'Amigurumi',
+            slug: 'amigurumi',
+            description: 'desc',
+            category: { id: 20, name: 'Peluche', slug: 'peluche' },
+            images: [
+                { url: 'https://assets.spacegurumis.lat/variants/1/a.webp', altText: 'A', sortOrder: 0 },
+                { url: 'https://assets.spacegurumis.lat/variants/1/b.webp', altText: 'B', sortOrder: 1 },
+            ],
+            variants: [],
+        });
+
+        const req = { params: { slug: 'amigurumi' } };
+        const res = makeRes();
+        const next = () => {
+            throw new Error('next should not be called');
+        };
+
+        await catalogController.getProductDetail(req, res, next);
+
+        assert.equal(res.statusCode, 200);
+        assert.equal(Array.isArray(res.payload.data.images), true);
+        assert.equal(res.payload.data.images.length, 2);
+        assert.deepEqual(res.payload.data.images.map((img) => img.sortOrder), [0, 1]);
+    } finally {
+        catalogService.getProductBySlug = originalGetProductBySlug;
+    }
+});
+
+test('catalog.controller.getProductDetail returns empty images array when gallery is unavailable', async () => {
+    const originalGetProductBySlug = catalogService.getProductBySlug;
+
+    try {
+        catalogService.getProductBySlug = async () => ({
+            id: 10,
+            name: 'Amigurumi',
+            slug: 'amigurumi',
+            description: 'desc',
+            category: { id: 20, name: 'Peluche', slug: 'peluche' },
+            images: [],
+            variants: [],
+        });
+
+        const req = { params: { slug: 'amigurumi' } };
+        const res = makeRes();
+        const next = () => {
+            throw new Error('next should not be called');
+        };
+
+        await catalogController.getProductDetail(req, res, next);
+
+        assert.equal(res.statusCode, 200);
+        assert.equal(Array.isArray(res.payload.data.images), true);
+        assert.equal(res.payload.data.images.length, 0);
+    } finally {
+        catalogService.getProductBySlug = originalGetProductBySlug;
+    }
+});
+
 test('catalog.service falls back to [] for invalid images payloads', async () => {
     const originalFetchVariantBySku = catalogRepository.fetchVariantBySku;
     const originalFetchProductBySlug = catalogRepository.fetchProductBySlug;
@@ -133,4 +197,3 @@ test('catalog.service falls back to [] for invalid images payloads', async () =>
         catalogRepository.fetchProductVariants = originalFetchProductVariants;
     }
 });
-

@@ -7,6 +7,7 @@ import {
     type CatalogVariant,
     type CatalogVariantDetail,
 } from '../../lib/api/catalog';
+import { listSiteAssetsBySlot, type SiteAsset } from '../../lib/api/siteAssets';
 import { formatPrice, formatVariantTitle } from '../../lib/format';
 import { readGuestCart, writeGuestCart } from '../../lib/cart/guestCart';
 import { buildWhatsappProductMessage, buildWhatsappUrl } from '../../lib/whatsapp';
@@ -14,6 +15,28 @@ import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 
 const CATALOG_PAGE_SIZE = 9;
+const HERO_SLOT = 'home-hero';
+const BANNER_SLOT = 'home-banner';
+const HERO_FALLBACK_ASSETS: SiteAsset[] = [
+    {
+        id: 0,
+        slot: HERO_SLOT,
+        title: 'Coleccion destacada',
+        altText: 'Coleccion destacada de amigurumis',
+        publicUrl: '/site-fallback-hero.svg',
+        sortOrder: 0,
+    },
+];
+const BANNER_FALLBACK_ASSETS: SiteAsset[] = [
+    {
+        id: 0,
+        slot: BANNER_SLOT,
+        title: 'Nuevos modelos cada semana',
+        altText: 'Nuevos modelos de amigurumis',
+        publicUrl: '/site-fallback-banner.svg',
+        sortOrder: 0,
+    },
+];
 
 function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
     const img = event.currentTarget;
@@ -22,6 +45,14 @@ function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
     }
     img.dataset.fallbackApplied = '1';
     img.src = '/placeholder-product.svg';
+}
+
+function normalizeSiteAssets(data: SiteAsset[] | null | undefined, fallback: SiteAsset[]) {
+    const items = Array.isArray(data)
+        ? data.filter((item) => item && typeof item.publicUrl === 'string' && item.publicUrl.trim())
+        : [];
+
+    return items.length ? items : fallback;
 }
 
 export default function HomePage() {
@@ -35,6 +66,8 @@ export default function HomePage() {
     const [detailStatus, setDetailStatus] = useState<'idle' | 'loading'>('idle');
     const [detailError, setDetailError] = useState('');
     const [selected, setSelected] = useState<CatalogVariantDetail | null>(null);
+    const [heroAssets, setHeroAssets] = useState<SiteAsset[]>(HERO_FALLBACK_ASSETS);
+    const [bannerAssets, setBannerAssets] = useState<SiteAsset[]>(BANNER_FALLBACK_ASSETS);
 
     const [message, setMessage] = useState('');
     const [messageTone, setMessageTone] = useState<'info' | 'success' | 'error'>('info');
@@ -70,6 +103,25 @@ export default function HomePage() {
             setDetailError(err instanceof Error ? err.message : 'Error al cargar el producto.');
         } finally {
             setDetailStatus('idle');
+        }
+    }
+
+    async function loadDecorativeAssets() {
+        const [heroResult, bannerResult] = await Promise.allSettled([
+            listSiteAssetsBySlot(HERO_SLOT),
+            listSiteAssetsBySlot(BANNER_SLOT),
+        ]);
+
+        if (heroResult.status === 'fulfilled') {
+            setHeroAssets(normalizeSiteAssets(heroResult.value.data, HERO_FALLBACK_ASSETS));
+        } else {
+            setHeroAssets(HERO_FALLBACK_ASSETS);
+        }
+
+        if (bannerResult.status === 'fulfilled') {
+            setBannerAssets(normalizeSiteAssets(bannerResult.value.data, BANNER_FALLBACK_ASSETS));
+        } else {
+            setBannerAssets(BANNER_FALLBACK_ASSETS);
         }
     }
 
@@ -116,6 +168,7 @@ export default function HomePage() {
 
     useEffect(() => {
         loadVariants(1);
+        loadDecorativeAssets();
     }, []);
 
     const detailWhatsappUrl = useMemo(() => {
@@ -135,8 +188,41 @@ export default function HomePage() {
         return selected.images.filter((img) => img && img.url);
     }, [selected]);
 
+    const heroAsset = heroAssets[0] || HERO_FALLBACK_ASSETS[0];
+    const visibleBanners = bannerAssets.slice(0, 2);
+
     return (
         <section className="surface page">
+            <section className="home-decor" aria-label="Decoracion principal">
+                <article className="hero-slot">
+                    <img
+                        src={heroAsset.publicUrl}
+                        alt={heroAsset.altText || 'Hero decorativo'}
+                        loading="lazy"
+                        decoding="async"
+                        onError={imgErrorToPlaceholder}
+                    />
+                    <div className="hero-slot__overlay">
+                        <p className="hero-slot__eyebrow">Spacegurumis</p>
+                        <h2>{heroAsset.title || 'Coleccion destacada'}</h2>
+                    </div>
+                </article>
+                <aside className="banner-slot">
+                    {visibleBanners.map((asset, index) => (
+                        <article className="banner-slot__card" key={`${asset.id}-${index}`}>
+                            <img
+                                src={asset.publicUrl}
+                                alt={asset.altText || 'Banner decorativo'}
+                                loading="lazy"
+                                decoding="async"
+                                onError={imgErrorToPlaceholder}
+                            />
+                            {asset.title ? <p>{asset.title}</p> : null}
+                        </article>
+                    ))}
+                </aside>
+            </section>
+
             <div className="page__header">
                 <h1>Catálogo</h1>
                 <p className="muted">Explora las variantes disponibles y agrega tus favoritos al carrito.</p>

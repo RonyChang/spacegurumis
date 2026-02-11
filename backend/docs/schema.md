@@ -133,6 +133,30 @@
 - `sort_order`
 - `created_at`, `updated_at`
 
+### site_assets
+- `id` (PK)
+- `slot`
+- `title`
+- `alt_text`
+- `image_key` (unique)
+- `public_url`
+- `content_type`
+- `byte_size`
+- `sort_order`
+- `is_active`
+- `starts_at`
+- `ends_at`
+- `created_at`, `updated_at`
+
+### product_images (legacy, deprecated)
+- Legacy table from pre-variant image model.
+- New integrations MUST use `product_variant_images`.
+- `product_images` remains only for migration/backward-compat references while legacy data is phased out.
+- Removal criterion:
+  - no runtime reads/writes depending on `product_images`
+  - no pending rows to migrate
+  - one dedicated cleanup change approved in OpenSpec before dropping it
+
 ### product_variants
 - `id` (PK)
 - `product_id` (FK -> products.id)

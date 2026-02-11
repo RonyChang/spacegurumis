@@ -2,6 +2,13 @@
 
 This backend supports uploading product images directly from the browser to Cloudflare R2 using a short-lived presigned `PUT` URL, then registering the image in Postgres so the Catalog API can expose `imageUrl` and `images[]`.
 
+## Legacy Model Status
+
+- Active model/table for product galleries: `ProductVariantImage` / `product_variant_images`.
+- Legacy model/table: `ProductImage` / `product_images` (deprecated).
+- New code and integrations MUST target variant images only.
+- `product_images` is kept temporarily for migration/backward-compat visibility and should be removed in a dedicated cleanup change once there are no legacy dependencies.
+
 ## High-Level Flow
 
 1. Frontend (admin) asks backend for a presigned upload URL.
@@ -197,6 +204,72 @@ This should be visible in:
 - `GET /api/v1/catalog/variants`
 - `GET /api/v1/catalog/variants/:sku`
 - `GET /api/v1/catalog/products/:slug`
+
+## Site Decorative Assets (`site_assets`)
+
+Besides variant galleries, the backend now supports decorative assets for home slots (for example `home-hero`, `home-banner`) using a dedicated table and API flow.
+
+### Env and slot convention
+
+- Slots are validated against `SITE_ASSET_ALLOWED_SLOTS` (comma-separated).
+- Default slots if env is empty: `home-hero,home-banner`.
+- Keys MUST use prefix `site/<slot>/...`.
+
+### Admin endpoints (cookie auth + admin + CSRF on mutating methods)
+
+- `POST /api/v1/admin/site-assets/presign`
+- `POST /api/v1/admin/site-assets`
+- `GET /api/v1/admin/site-assets?slot=<slot>` (slot is optional)
+- `PATCH /api/v1/admin/site-assets/:id`
+- `DELETE /api/v1/admin/site-assets/:id`
+
+Presign request:
+
+```json
+{
+  "slot": "home-hero",
+  "contentType": "image/webp",
+  "byteSize": 123456
+}
+```
+
+Register request:
+
+```json
+{
+  "slot": "home-hero",
+  "title": "Hero principal",
+  "altText": "Hero principal de home",
+  "imageKey": "site/home-hero/<uuid>.webp",
+  "contentType": "image/webp",
+  "byteSize": 123456,
+  "sortOrder": 0,
+  "isActive": true,
+  "startsAt": null,
+  "endsAt": null
+}
+```
+
+The register endpoint validates object existence with `HEAD` before persistence.
+
+### Public slot endpoint
+
+- `GET /api/v1/site-assets/:slot`
+
+Returns only active and time-valid assets, ordered by `sortOrder` and `id`.
+
+Example response item:
+
+```json
+{
+  "id": 21,
+  "slot": "home-hero",
+  "title": "Hero principal",
+  "altText": "Hero principal de home",
+  "publicUrl": "https://assets.spacegurumis.lat/site/home-hero/abc.webp",
+  "sortOrder": 0
+}
+```
 
 ## Troubleshooting
 
