@@ -61,6 +61,13 @@ export type CreateProductPayload = {
     sizeLabel?: string | null;
 };
 
+export type CreateCategoryPayload = {
+    name: string;
+    slug: string;
+    description?: string | null;
+    isActive?: boolean;
+};
+
 export type UpdateProductPayload = {
     categoryId?: number | null;
     name?: string;
@@ -105,6 +112,42 @@ export type AdminVariantImage = {
     sortOrder: number;
 };
 
+export type AdminCatalogDeleteResult = {
+    scope: 'category' | 'product' | 'variant';
+    categoryId?: number;
+    productId?: number;
+    variantId?: number;
+    deletedCategories?: number;
+    deletedProducts?: number;
+    deletedVariants?: number;
+    deletedProductImages?: number;
+    deletedVariantImages?: number;
+    deletedInventories?: number;
+    deletedCartItems?: number;
+};
+
+export type AdminDiscount = {
+    id: number;
+    code: string;
+    percentage: number;
+    isActive: boolean;
+    startsAt: string | null;
+    expiresAt: string | null;
+    maxUses: number | null;
+    usedCount: number;
+    minSubtotal: number | null;
+};
+
+export type CreateAdminDiscountPayload = {
+    code: string;
+    percentage: number;
+    isActive?: boolean;
+    startsAt?: string | null;
+    expiresAt?: string | null;
+    maxUses?: number | null;
+    minSubtotal?: number | null;
+};
+
 export function listAdminUsers() {
     return apiGet<AdminUser[]>('/api/v1/admin/users');
 }
@@ -119,6 +162,10 @@ export function listAdminCatalogCategories() {
 
 export function listAdminCatalogProducts() {
     return apiGet<AdminCatalogProduct[]>('/api/v1/admin/catalog/products');
+}
+
+export function createAdminCatalogCategory(payload: CreateCategoryPayload) {
+    return apiPost<AdminCatalogCategory>('/api/v1/admin/catalog/categories', payload);
 }
 
 export function createAdminCatalogProduct(payload: CreateProductPayload) {
@@ -139,6 +186,26 @@ export function updateAdminCatalogVariant(variantId: number, payload: UpdateVari
 
 export function updateAdminCatalogVariantStock(variantId: number, stock: number) {
     return apiPatch(`/api/v1/admin/catalog/variants/${variantId}/stock`, { stock });
+}
+
+export function deleteAdminCatalogCategory(categoryId: number) {
+    return apiDelete<AdminCatalogDeleteResult>(`/api/v1/admin/catalog/categories/${categoryId}`);
+}
+
+export function deleteAdminCatalogProduct(productId: number) {
+    return apiDelete<AdminCatalogDeleteResult>(`/api/v1/admin/catalog/products/${productId}`);
+}
+
+export function deleteAdminCatalogVariant(variantId: number) {
+    return apiDelete<AdminCatalogDeleteResult>(`/api/v1/admin/catalog/variants/${variantId}`);
+}
+
+export function listAdminDiscounts() {
+    return apiGet<AdminDiscount[]>('/api/v1/admin/discounts');
+}
+
+export function createAdminDiscount(payload: CreateAdminDiscountPayload) {
+    return apiPost<AdminDiscount>('/api/v1/admin/discounts', payload);
 }
 
 export function presignVariantImage(variantId: number, payload: { contentType: string; byteSize: number }) {

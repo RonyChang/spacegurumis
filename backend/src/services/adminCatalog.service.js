@@ -132,6 +132,44 @@ async function listCategories() {
     };
 }
 
+async function createCategory(payload) {
+    const name = String(payload && payload.name ? payload.name : '').trim();
+    const slug = String(payload && payload.slug ? payload.slug : '').trim().toLowerCase();
+    const description = parseNullableString(payload && payload.description);
+    const isActive = parseBoolean(payload && payload.isActive, true);
+
+    if (!name) {
+        return { error: 'bad_request', message: 'name requerido' };
+    }
+    if (!slug) {
+        return { error: 'bad_request', message: 'slug requerido' };
+    }
+
+    try {
+        const created = await adminCatalogRepository.createCategory({
+            name,
+            slug,
+            description: description.value,
+            isActive,
+        });
+
+        return {
+            data: {
+                id: created.id,
+                name: created.name,
+                slug: created.slug,
+                description: created.description || null,
+                isActive: Boolean(created.isActive),
+            },
+        };
+    } catch (error) {
+        if (isUniqueConstraintError(error)) {
+            return { error: 'conflict', message: uniqueMessage(error) };
+        }
+        throw error;
+    }
+}
+
 async function listProducts() {
     const rows = await adminCatalogRepository.listProducts();
     return {
@@ -543,13 +581,114 @@ async function updateVariantStock(variantId, payload) {
     };
 }
 
+async function deleteCategory(categoryId) {
+    const parsedId = parsePositiveInt(categoryId);
+    if (!parsedId) {
+        return { error: 'bad_request', message: 'categoryId invalido' };
+    }
+
+    const category = await adminCatalogRepository.findCategoryById(parsedId);
+    if (!category) {
+        return { error: 'not_found', message: 'Categoria no encontrada' };
+    }
+
+    const result = await sequelize.transaction((transaction) =>
+        adminCatalogRepository.deleteCategoryScope(parsedId, { transaction })
+    );
+
+    if (!result) {
+        return { error: 'not_found', message: 'Categoria no encontrada' };
+    }
+
+    return {
+        data: {
+            scope: 'category',
+            categoryId: parsedId,
+            deletedCategories: Number(result.deletedCategories || 0),
+            deletedProducts: Number(result.deletedProducts || 0),
+            deletedVariants: Number(result.deletedVariants || 0),
+            deletedProductImages: Number(result.deletedProductImages || 0),
+            deletedVariantImages: Number(result.deletedVariantImages || 0),
+            deletedInventories: Number(result.deletedInventories || 0),
+            deletedCartItems: Number(result.deletedCartItems || 0),
+        },
+    };
+}
+
+async function deleteProduct(productId) {
+    const parsedId = parsePositiveInt(productId);
+    if (!parsedId) {
+        return { error: 'bad_request', message: 'productId invalido' };
+    }
+
+    const product = await adminCatalogRepository.findProductById(parsedId);
+    if (!product) {
+        return { error: 'not_found', message: 'Producto no encontrado' };
+    }
+
+    const result = await sequelize.transaction((transaction) =>
+        adminCatalogRepository.deleteProductScope(parsedId, { transaction })
+    );
+
+    if (!result) {
+        return { error: 'not_found', message: 'Producto no encontrado' };
+    }
+
+    return {
+        data: {
+            scope: 'product',
+            productId: parsedId,
+            deletedProducts: Number(result.deletedProducts || 0),
+            deletedVariants: Number(result.deletedVariants || 0),
+            deletedProductImages: Number(result.deletedProductImages || 0),
+            deletedVariantImages: Number(result.deletedVariantImages || 0),
+            deletedInventories: Number(result.deletedInventories || 0),
+            deletedCartItems: Number(result.deletedCartItems || 0),
+        },
+    };
+}
+
+async function deleteVariant(variantId) {
+    const parsedId = parsePositiveInt(variantId);
+    if (!parsedId) {
+        return { error: 'bad_request', message: 'variantId invalido' };
+    }
+
+    const variant = await adminCatalogRepository.findVariantById(parsedId);
+    if (!variant) {
+        return { error: 'not_found', message: 'Variante no encontrada' };
+    }
+
+    const result = await sequelize.transaction((transaction) =>
+        adminCatalogRepository.deleteVariantScope(parsedId, { transaction })
+    );
+
+    if (!result) {
+        return { error: 'not_found', message: 'Variante no encontrada' };
+    }
+
+    return {
+        data: {
+            scope: 'variant',
+            variantId: parsedId,
+            deletedVariants: Number(result.deletedVariants || 0),
+            deletedVariantImages: Number(result.deletedVariantImages || 0),
+            deletedInventories: Number(result.deletedInventories || 0),
+            deletedCartItems: Number(result.deletedCartItems || 0),
+        },
+    };
+}
+
 module.exports = {
     listCategories,
+    createCategory,
     listProducts,
     createProduct,
     updateProduct,
     createVariant,
     updateVariant,
     updateVariantStock,
+    deleteCategory,
+    deleteProduct,
+    deleteVariant,
 };
-

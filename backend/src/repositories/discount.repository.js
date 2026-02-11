@@ -1,5 +1,9 @@
 const { DiscountCode, DiscountRedemption } = require('../models');
 
+function toPlain(row) {
+    return row ? row.get({ plain: true }) : null;
+}
+
 async function findDiscountByCode(code, transaction) {
     const discount = await DiscountCode.findOne({
         where: { code },
@@ -39,8 +43,22 @@ async function createRedemption({ discountCodeId, orderId, userId }, transaction
     return redemption.get({ plain: true });
 }
 
+async function listDiscountCodes() {
+    const rows = await DiscountCode.findAll({
+        order: [['id', 'DESC']],
+    });
+    return rows.map(toPlain);
+}
+
+async function createDiscountCode(payload, transaction) {
+    const row = await DiscountCode.create(payload, { transaction });
+    return toPlain(row);
+}
+
 module.exports = {
     findDiscountByCode,
     incrementDiscountUsage,
     createRedemption,
+    listDiscountCodes,
+    createDiscountCode,
 };

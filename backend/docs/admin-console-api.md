@@ -1,6 +1,6 @@
 # Admin Console API
 
-Esta guia documenta las rutas usadas por la consola `/admin` para gestion de usuarios admin y catalogo.
+Esta guia documenta las rutas usadas por la consola `/admin` para gestion de usuarios admin, catalogo y codigos de descuento.
 
 ## Seguridad requerida
 
@@ -72,6 +72,37 @@ Errores comunes:
 
 Lista categorias para formularios admin.
 
+### POST `/api/v1/admin/catalog/categories`
+
+Crea categoria nueva para flujo admin guiado.
+
+Payload:
+
+```json
+{
+  "name": "Amigurumis",
+  "slug": "amigurumis",
+  "description": "Categoria de prueba",
+  "isActive": true
+}
+```
+
+Errores comunes:
+
+- `400` validaciones (`name`/`slug` requeridos).
+- `409` slug o nombre duplicado.
+
+### DELETE `/api/v1/admin/catalog/categories/:id`
+
+Elimina categoria por alcance, junto con su arbol dependiente de catalogo:
+
+- productos de esa categoria;
+- variantes de esos productos;
+- inventarios y imagenes de variantes;
+- imagenes legacy de producto.
+
+Respuesta `data` incluye contadores de eliminacion por tipo.
+
 ### GET `/api/v1/admin/catalog/products`
 
 Lista productos con variantes e inventario resumido.
@@ -111,6 +142,12 @@ Errores comunes:
 
 Actualiza metadatos del producto (`name`, `slug`, `description`, `isActive`, `categoryId`).
 
+### DELETE `/api/v1/admin/catalog/products/:id`
+
+Elimina el producto completo con variantes y registros dependientes.
+
+Respuesta `data` incluye contadores de eliminacion por tipo.
+
 ### POST `/api/v1/admin/catalog/products/:id/variants`
 
 Crea variante adicional con inventario inicial opcional.
@@ -122,6 +159,16 @@ Actualiza metadatos de variante (`sku`, `variantName`, `price`, `weightGrams`, `
 ### PATCH `/api/v1/admin/catalog/variants/:id/stock`
 
 Actualiza stock total de variante (valida que no sea menor a `reserved`).
+
+### DELETE `/api/v1/admin/catalog/variants/:id`
+
+Elimina solo la variante seleccionada con sus dependencias (inventario, imagenes y cart items).
+
+Respuesta `data` incluye contadores de eliminacion por tipo.
+
+Nota:
+
+- `GET /api/v1/admin/catalog/products` retorna `id`, `name` y `slug` por producto para desambiguacion en selectores (`name (slug)`).
 
 ## 3) Imagenes de variantes (R2)
 
@@ -135,7 +182,48 @@ La consola admin reutiliza el flujo existente:
 
 Referencia completa: `spacegurumis/backend/docs/r2-product-images.md`.
 
-## 4) Checklist de despliegue admin (produccion)
+## 4) Admin discounts
+
+### GET `/api/v1/admin/discounts`
+
+Lista codigos de descuento para gestion administrativa.
+
+Campos devueltos por item:
+
+- `id`
+- `code`
+- `percentage`
+- `isActive`
+- `startsAt`
+- `expiresAt`
+- `maxUses`
+- `usedCount`
+- `minSubtotal` (en soles)
+
+### POST `/api/v1/admin/discounts`
+
+Crea codigo de descuento con reglas opcionales.
+
+Payload:
+
+```json
+{
+  "code": "WELCOME10",
+  "percentage": 10,
+  "isActive": true,
+  "startsAt": "2026-02-11T00:00:00.000Z",
+  "expiresAt": "2026-03-01T00:00:00.000Z",
+  "maxUses": 100,
+  "minSubtotal": 50
+}
+```
+
+Errores comunes:
+
+- `400` reglas invalidas (`percentage`, fechas, `maxUses`, `minSubtotal`).
+- `409` codigo ya existe.
+
+## 5) Checklist de despliegue admin (produccion)
 
 1. Configurar cookies seguras:
 - `COOKIE_SECURE=true`
@@ -160,6 +248,10 @@ Referencia completa: `spacegurumis/backend/docs/r2-product-images.md`.
 6. Smoke test previo a release:
 - Login admin y acceso `/admin`.
 - Crear admin nuevo.
-- Crear producto + variante + stock.
+- Crear categoria nueva.
+- Crear producto + variante inicial.
+- Crear variante en producto existente.
+- Borrar por alcance: categoria, producto, variante.
+- Crear codigo de descuento.
 - Subir/registrar imagen de variante.
 - Verificar detalle publico en `/products/<slug>?sku=<sku>`.

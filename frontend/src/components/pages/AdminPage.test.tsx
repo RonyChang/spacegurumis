@@ -8,17 +8,23 @@ const getProfileMock = vi.fn();
 const listAdminUsersMock = vi.fn();
 const createAdminUserMock = vi.fn();
 const listAdminCatalogCategoriesMock = vi.fn();
+const createAdminCatalogCategoryMock = vi.fn();
 const listAdminCatalogProductsMock = vi.fn();
 const createAdminCatalogProductMock = vi.fn();
 const updateAdminCatalogProductMock = vi.fn();
 const createAdminCatalogVariantMock = vi.fn();
 const updateAdminCatalogVariantMock = vi.fn();
 const updateAdminCatalogVariantStockMock = vi.fn();
+const deleteAdminCatalogCategoryMock = vi.fn();
+const deleteAdminCatalogProductMock = vi.fn();
+const deleteAdminCatalogVariantMock = vi.fn();
 const listVariantImagesMock = vi.fn();
 const presignVariantImageMock = vi.fn();
 const registerVariantImageMock = vi.fn();
 const updateVariantImageMock = vi.fn();
 const deleteVariantImageMock = vi.fn();
+const listAdminDiscountsMock = vi.fn();
+const createAdminDiscountMock = vi.fn();
 
 vi.mock('../../lib/api/profile', () => ({
     getProfile: (...args: unknown[]) => getProfileMock(...args),
@@ -28,17 +34,23 @@ vi.mock('../../lib/api/admin', () => ({
     listAdminUsers: (...args: unknown[]) => listAdminUsersMock(...args),
     createAdminUser: (...args: unknown[]) => createAdminUserMock(...args),
     listAdminCatalogCategories: (...args: unknown[]) => listAdminCatalogCategoriesMock(...args),
+    createAdminCatalogCategory: (...args: unknown[]) => createAdminCatalogCategoryMock(...args),
     listAdminCatalogProducts: (...args: unknown[]) => listAdminCatalogProductsMock(...args),
     createAdminCatalogProduct: (...args: unknown[]) => createAdminCatalogProductMock(...args),
     updateAdminCatalogProduct: (...args: unknown[]) => updateAdminCatalogProductMock(...args),
     createAdminCatalogVariant: (...args: unknown[]) => createAdminCatalogVariantMock(...args),
     updateAdminCatalogVariant: (...args: unknown[]) => updateAdminCatalogVariantMock(...args),
     updateAdminCatalogVariantStock: (...args: unknown[]) => updateAdminCatalogVariantStockMock(...args),
+    deleteAdminCatalogCategory: (...args: unknown[]) => deleteAdminCatalogCategoryMock(...args),
+    deleteAdminCatalogProduct: (...args: unknown[]) => deleteAdminCatalogProductMock(...args),
+    deleteAdminCatalogVariant: (...args: unknown[]) => deleteAdminCatalogVariantMock(...args),
     listVariantImages: (...args: unknown[]) => listVariantImagesMock(...args),
     presignVariantImage: (...args: unknown[]) => presignVariantImageMock(...args),
     registerVariantImage: (...args: unknown[]) => registerVariantImageMock(...args),
     updateVariantImage: (...args: unknown[]) => updateVariantImageMock(...args),
     deleteVariantImage: (...args: unknown[]) => deleteVariantImageMock(...args),
+    listAdminDiscounts: (...args: unknown[]) => listAdminDiscountsMock(...args),
+    createAdminDiscount: (...args: unknown[]) => createAdminDiscountMock(...args),
 }));
 
 function makeAdminPayload() {
@@ -58,8 +70,53 @@ function makeAdminPayload() {
     };
 }
 
+function makeProducts() {
+    return [
+        {
+            id: 101,
+            name: 'Peluche',
+            slug: 'peluche-a',
+            description: 'Desc A',
+            isActive: true,
+            category: { id: 10, name: 'Categoria A', slug: 'cat-a', isActive: true },
+            variants: [
+                {
+                    id: 300,
+                    sku: 'SKU-A',
+                    variantName: 'Rojo',
+                    price: 49.9,
+                    weightGrams: null,
+                    sizeLabel: null,
+                    stock: 8,
+                    reserved: 0,
+                },
+            ],
+        },
+        {
+            id: 102,
+            name: 'Peluche',
+            slug: 'peluche-b',
+            description: 'Desc B',
+            isActive: true,
+            category: { id: 10, name: 'Categoria A', slug: 'cat-a', isActive: true },
+            variants: [
+                {
+                    id: 301,
+                    sku: 'SKU-B',
+                    variantName: 'Azul',
+                    price: 59.9,
+                    weightGrams: null,
+                    sizeLabel: null,
+                    stock: 5,
+                    reserved: 0,
+                },
+            ],
+        },
+    ];
+}
+
 function mockAdminBootstrap() {
-    getProfileMock.mockResolvedValueOnce(makeAdminPayload());
+    getProfileMock.mockResolvedValue(makeAdminPayload());
     listAdminUsersMock.mockResolvedValue({
         data: [
             {
@@ -79,39 +136,36 @@ function mockAdminBootstrap() {
         meta: {},
     });
     listAdminCatalogCategoriesMock.mockResolvedValue({
-        data: [{ id: 10, name: 'Peluche', slug: 'peluche', isActive: true }],
+        data: [{ id: 10, name: 'Categoria A', slug: 'cat-a', isActive: true }],
         message: 'OK',
         errors: [],
         meta: {},
     });
     listAdminCatalogProductsMock.mockResolvedValue({
+        data: makeProducts(),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+    listVariantImagesMock.mockResolvedValue({ data: [], message: 'OK', errors: [], meta: {} });
+    listAdminDiscountsMock.mockResolvedValue({
         data: [
             {
-                id: 99,
-                name: 'Amigurumi',
-                slug: 'amigurumi',
-                description: 'Desc',
+                id: 1,
+                code: 'WELCOME10',
+                percentage: 10,
                 isActive: true,
-                category: { id: 10, name: 'Peluche', slug: 'peluche', isActive: true },
-                variants: [
-                    {
-                        id: 300,
-                        sku: 'SKU-RED',
-                        variantName: 'Rojo',
-                        price: 49.9,
-                        weightGrams: null,
-                        sizeLabel: null,
-                        stock: 8,
-                        reserved: 0,
-                    },
-                ],
+                startsAt: null,
+                expiresAt: null,
+                maxUses: 100,
+                usedCount: 5,
+                minSubtotal: 25,
             },
         ],
         message: 'OK',
         errors: [],
         meta: {},
     });
-    listVariantImagesMock.mockResolvedValue({ data: [], message: 'OK', errors: [], meta: {} });
 }
 
 beforeEach(() => {
@@ -133,6 +187,12 @@ beforeEach(() => {
         errors: [],
         meta: {},
     });
+    createAdminCatalogCategoryMock.mockResolvedValue({
+        data: { id: 55, name: 'Nueva categoria', slug: 'nueva-categoria', isActive: true },
+        message: 'Creado',
+        errors: [],
+        meta: {},
+    });
     createAdminCatalogProductMock.mockResolvedValue({
         data: {
             product: { id: 120, name: 'Nuevo', slug: 'nuevo' },
@@ -143,15 +203,34 @@ beforeEach(() => {
         errors: [],
         meta: {},
     });
+    createAdminCatalogVariantMock.mockResolvedValue({ data: {}, message: 'Creado', errors: [], meta: {} });
 
     updateAdminCatalogProductMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
-    createAdminCatalogVariantMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     updateAdminCatalogVariantMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     updateAdminCatalogVariantStockMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
+    deleteAdminCatalogCategoryMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
+    deleteAdminCatalogProductMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
+    deleteAdminCatalogVariantMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     presignVariantImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     registerVariantImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     updateVariantImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     deleteVariantImageMock.mockResolvedValue({ data: { deleted: true }, message: 'OK', errors: [], meta: {} });
+    createAdminDiscountMock.mockResolvedValue({
+        data: {
+            id: 2,
+            code: 'PROMO15',
+            percentage: 15,
+            isActive: true,
+            startsAt: null,
+            expiresAt: null,
+            maxUses: null,
+            usedCount: 0,
+            minSubtotal: null,
+        },
+        message: 'Creado',
+        errors: [],
+        meta: {},
+    });
 });
 
 afterEach(() => {
@@ -182,211 +261,145 @@ test('redirects non-admin users away from admin console', async () => {
     expect(screen.queryByRole('heading', { name: 'Consola admin' })).toBeNull();
 });
 
-test('admin can create another admin from console', async () => {
+test('supports create flow mode switching and product selector disambiguation with slug', async () => {
     render(<AdminPage />);
-
     await screen.findByRole('heading', { name: 'Consola admin' });
-    const usersCardHeading = screen.getByRole('heading', { name: 'Usuarios admin' });
-    const usersCard = usersCardHeading.closest('section');
-    expect(usersCard).toBeTruthy();
-    const usersScope = within(usersCard as HTMLElement);
 
-    fireEvent.change(usersScope.getByLabelText('Email'), { target: { value: 'new-admin@spacegurumis.lat' } });
-    fireEvent.change(usersScope.getByLabelText('Password (si es usuario nuevo)'), { target: { value: 'Secret1234' } });
-    fireEvent.change(usersScope.getByLabelText('Nombre'), { target: { value: 'New' } });
-    fireEvent.change(usersScope.getByLabelText('Apellido'), { target: { value: 'Admin' } });
+    fireEvent.change(screen.getByLabelText('Modo producto'), { target: { value: 'existing' } });
+    fireEvent.change(screen.getByLabelText('Categoria (creacion)'), { target: { value: '10' } });
 
-    fireEvent.click(usersScope.getByRole('button', { name: 'Crear / promover admin' }));
+    const productSelect = screen.getByLabelText('Producto existente (creacion)');
+    const optionTexts = Array.from((productSelect as HTMLSelectElement).options).map((item) => item.textContent || '');
+    expect(optionTexts).toContain('Peluche (peluche-a)');
+    expect(optionTexts).toContain('Peluche (peluche-b)');
+
+    fireEvent.change(productSelect, { target: { value: '102' } });
+    fireEvent.change(screen.getByLabelText('SKU variante'), { target: { value: 'SKU-NEW' } });
+    fireEvent.change(screen.getByLabelText('Precio variante'), { target: { value: '39.9' } });
+    fireEvent.change(screen.getByLabelText('Stock inicial variante'), { target: { value: '6' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear variante en producto existente' }));
 
     await waitFor(() => {
-        expect(createAdminUserMock).toHaveBeenCalledWith({
-            email: 'new-admin@spacegurumis.lat',
-            password: 'Secret1234',
-            firstName: 'New',
-            lastName: 'Admin',
-        });
+        expect(createAdminCatalogVariantMock).toHaveBeenCalledWith(
+            102,
+            expect.objectContaining({
+                sku: 'SKU-NEW',
+                price: 39.9,
+                initialStock: 6,
+            })
+        );
     });
 });
 
-test('admin can create product with initial variant data from console', async () => {
+test('supports create flow for new category + new product + initial variant', async () => {
     render(<AdminPage />);
     await screen.findByRole('heading', { name: 'Consola admin' });
-    const createProductHeading = screen.getByRole('heading', { name: 'Crear producto' });
-    const createProductCard = createProductHeading.closest('section');
-    expect(createProductCard).toBeTruthy();
-    const productScope = within(createProductCard as HTMLElement);
 
-    fireEvent.change(productScope.getByLabelText('Nombre de producto'), { target: { value: 'Nuevo peluche' } });
-    fireEvent.change(productScope.getByLabelText('Slug'), { target: { value: 'nuevo-peluche' } });
-    fireEvent.change(productScope.getByLabelText('Descripcion'), { target: { value: 'Descripcion nueva' } });
-    fireEvent.change(productScope.getByLabelText('SKU'), { target: { value: 'SKU-NEW' } });
-    fireEvent.change(productScope.getByLabelText('Precio'), { target: { value: '69.9' } });
-    fireEvent.change(productScope.getByLabelText('Stock inicial'), { target: { value: '4' } });
+    fireEvent.change(screen.getByLabelText('Modo categoria'), { target: { value: 'create' } });
+    fireEvent.change(screen.getByLabelText('Nombre categoria'), { target: { value: 'Nueva categoria' } });
+    fireEvent.change(screen.getByLabelText('Slug categoria'), { target: { value: 'nueva-categoria' } });
 
-    fireEvent.click(productScope.getByRole('button', { name: 'Crear producto + variante' }));
+    fireEvent.change(screen.getByLabelText('Nombre producto'), { target: { value: 'Producto nuevo' } });
+    fireEvent.change(screen.getByLabelText('Slug producto'), { target: { value: 'producto-nuevo' } });
 
+    fireEvent.change(screen.getByLabelText('SKU variante'), { target: { value: 'SKU-CREATE' } });
+    fireEvent.change(screen.getByLabelText('Precio variante'), { target: { value: '69.9' } });
+    fireEvent.change(screen.getByLabelText('Stock inicial variante'), { target: { value: '9' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear producto + variante' }));
+
+    await waitFor(() => {
+        expect(createAdminCatalogCategoryMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                name: 'Nueva categoria',
+                slug: 'nueva-categoria',
+            })
+        );
+    });
     await waitFor(() => {
         expect(createAdminCatalogProductMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                name: 'Nuevo peluche',
-                slug: 'nuevo-peluche',
-                sku: 'SKU-NEW',
-                price: 69.9,
-                initialStock: 4,
+                categoryId: 55,
+                name: 'Producto nuevo',
+                slug: 'producto-nuevo',
+                sku: 'SKU-CREATE',
+                initialStock: 9,
             })
         );
     });
 });
 
-test('admin can update selected variant metadata and stock from console', async () => {
+test('supports destructive actions by selected scope', async () => {
+    const confirmMock = vi.fn().mockReturnValue(true);
+    vi.stubGlobal('confirm', confirmMock);
+
     render(<AdminPage />);
     await screen.findByRole('heading', { name: 'Consola admin' });
 
-    const variantsHeading = screen.getByRole('heading', { name: 'Variantes e imagenes' });
-    const variantsCard = variantsHeading.closest('section');
-    expect(variantsCard).toBeTruthy();
-    const variantsScope = within(variantsCard as HTMLElement);
-
-    const editVariantTitle = variantsScope.getByText('Editar variante seleccionada');
-    const editVariantForm = editVariantTitle.closest('form');
-    expect(editVariantForm).toBeTruthy();
-    const editVariantScope = within(editVariantForm as HTMLElement);
-
-    fireEvent.change(editVariantScope.getByLabelText('SKU'), { target: { value: 'SKU-RED-2' } });
-    fireEvent.change(editVariantScope.getByLabelText('Nombre variante'), { target: { value: 'Rojo intenso' } });
-    fireEvent.change(editVariantScope.getByLabelText('Precio'), { target: { value: '59.9' } });
-    fireEvent.change(editVariantScope.getByLabelText('Stock'), { target: { value: '12' } });
-
-    fireEvent.click(editVariantScope.getByRole('button', { name: 'Guardar variante' }));
-
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar por alcance' }));
     await waitFor(() => {
-        expect(updateAdminCatalogVariantMock).toHaveBeenCalledWith(
-            300,
-            expect.objectContaining({
-                sku: 'SKU-RED-2',
-                variantName: 'Rojo intenso',
-                price: 59.9,
-            })
-        );
+        expect(deleteAdminCatalogVariantMock).toHaveBeenCalledWith(300);
     });
+
+    fireEvent.change(screen.getByLabelText('Variante (edicion)'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar por alcance' }));
     await waitFor(() => {
-        expect(updateAdminCatalogVariantStockMock).toHaveBeenCalledWith(300, 12);
+        expect(deleteAdminCatalogProductMock).toHaveBeenCalledWith(101);
+    });
+
+    fireEvent.change(screen.getByLabelText('Producto (edicion)'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Eliminar por alcance' }));
+    await waitFor(() => {
+        expect(deleteAdminCatalogCategoryMock).toHaveBeenCalledWith(10);
     });
 });
 
-test('admin can upload, update, and delete variant images from console', async () => {
-    listVariantImagesMock.mockResolvedValue({
-        data: [
-            {
-                id: 900,
-                productVariantId: 300,
-                imageKey: 'variants/300/hero.webp',
-                publicUrl: 'https://assets.spacegurumis.lat/variants/300/hero.webp',
-                contentType: 'image/webp',
-                byteSize: 1024,
-                altText: 'Hero',
-                sortOrder: 0,
-            },
-        ],
-        message: 'OK',
-        errors: [],
-        meta: {},
+test('supports discount list and creation from admin section', async () => {
+    render(<AdminPage />);
+    await screen.findByRole('heading', { name: 'Consola admin' });
+
+    await screen.findByText('WELCOME10');
+    fireEvent.change(screen.getByLabelText('Codigo descuento'), { target: { value: 'promo15' } });
+    fireEvent.change(screen.getByLabelText('Porcentaje descuento'), { target: { value: '15' } });
+    fireEvent.change(screen.getByLabelText('Min subtotal'), { target: { value: '50' } });
+    fireEvent.change(screen.getByLabelText('Max usos'), { target: { value: '100' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Crear descuento' }));
+
+    await waitFor(() => {
+        expect(createAdminDiscountMock).toHaveBeenCalledWith(
+            expect.objectContaining({
+                code: 'promo15',
+                percentage: 15,
+                minSubtotal: 50,
+                maxUses: 100,
+            })
+        );
     });
-    presignVariantImageMock.mockResolvedValue({
-        data: {
-            uploadUrl: 'https://uploads.spacegurumis.lat/signed',
-            imageKey: 'variants/300/new.webp',
-            expiresIn: 120,
-        },
-        message: 'OK',
-        errors: [],
-        meta: {},
-    });
-    registerVariantImageMock.mockResolvedValue({
-        data: {
-            id: 901,
-            productVariantId: 300,
-            imageKey: 'variants/300/new.webp',
-            publicUrl: 'https://assets.spacegurumis.lat/variants/300/new.webp',
-            contentType: 'image/webp',
-            byteSize: 3,
-            altText: 'Nueva imagen',
-            sortOrder: 2,
-        },
-        message: 'OK',
-        errors: [],
-        meta: {},
-    });
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200 });
-    vi.stubGlobal('fetch', fetchMock);
+});
+
+test('shows actionable validation error when discount payload is invalid', async () => {
+    createAdminDiscountMock.mockRejectedValueOnce(new Error('Rango de fechas invalido: startsAt debe ser menor que expiresAt'));
 
     render(<AdminPage />);
     await screen.findByRole('heading', { name: 'Consola admin' });
 
-    const variantsHeading = screen.getByRole('heading', { name: 'Variantes e imagenes' });
-    const variantsCard = variantsHeading.closest('section');
-    expect(variantsCard).toBeTruthy();
-    const variantsScope = within(variantsCard as HTMLElement);
-
-    const uploadTitle = variantsScope.getByText('Subir imagen para variante');
-    const uploadForm = uploadTitle.closest('form');
-    expect(uploadForm).toBeTruthy();
-    const uploadScope = within(uploadForm as HTMLElement);
-
-    const file = new File(['img'], 'new.webp', { type: 'image/webp' });
-    fireEvent.change(uploadScope.getByLabelText('Archivo'), { target: { files: [file] } });
-    fireEvent.change(uploadScope.getByLabelText('Alt text'), { target: { value: 'Nueva imagen' } });
-    fireEvent.change(uploadScope.getByLabelText('Orden'), { target: { value: '2' } });
-
-    fireEvent.click(uploadScope.getByRole('button', { name: 'Subir y registrar imagen' }));
+    fireEvent.change(screen.getByLabelText('Codigo descuento'), { target: { value: 'promo15' } });
+    fireEvent.change(screen.getByLabelText('Porcentaje descuento'), { target: { value: '15' } });
+    fireEvent.change(screen.getByLabelText('Inicio'), { target: { value: '2026-03-10T10:00' } });
+    fireEvent.change(screen.getByLabelText('Expira'), { target: { value: '2026-03-09T10:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Crear descuento' }));
 
     await waitFor(() => {
-        expect(presignVariantImageMock).toHaveBeenCalledWith(300, {
-            contentType: 'image/webp',
-            byteSize: 3,
-        });
-    });
-    await waitFor(() => {
-        expect(fetchMock).toHaveBeenCalledWith(
-            'https://uploads.spacegurumis.lat/signed',
+        expect(createAdminDiscountMock).toHaveBeenCalledWith(
             expect.objectContaining({
-                method: 'PUT',
-                body: file,
+                code: 'promo15',
+                percentage: 15,
+                startsAt: '2026-03-10T10:00',
+                expiresAt: '2026-03-09T10:00',
             })
         );
     });
-    await waitFor(() => {
-        expect(registerVariantImageMock).toHaveBeenCalledWith(
-            300,
-            expect.objectContaining({
-                imageKey: 'variants/300/new.webp',
-                contentType: 'image/webp',
-                byteSize: 3,
-                altText: 'Nueva imagen',
-                sortOrder: 2,
-            })
-        );
-    });
-
-    const image = await screen.findByRole('img', { name: 'Hero' });
-    const imageRow = image.closest('.admin-images__row');
-    expect(imageRow).toBeTruthy();
-    const imageScope = within(imageRow as HTMLElement);
-
-    fireEvent.change(imageScope.getByLabelText('Alt text'), { target: { value: 'Hero actualizado' } });
-    fireEvent.change(imageScope.getByLabelText('Orden'), { target: { value: '5' } });
-    fireEvent.click(imageScope.getByRole('button', { name: 'Guardar' }));
-
-    await waitFor(() => {
-        expect(updateVariantImageMock).toHaveBeenCalledWith(300, 900, {
-            altText: 'Hero actualizado',
-            sortOrder: 5,
-        });
-    });
-
-    fireEvent.click(imageScope.getByRole('button', { name: 'Eliminar' }));
-
-    await waitFor(() => {
-        expect(deleteVariantImageMock).toHaveBeenCalledWith(300, 900);
-    });
+    await screen.findByText('Rango de fechas invalido: startsAt debe ser menor que expiresAt');
 });

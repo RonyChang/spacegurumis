@@ -1,11 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+    createAdminCatalogCategory,
     createAdminCatalogProduct,
     createAdminCatalogVariant,
+    createAdminDiscount,
     createAdminUser,
+    deleteAdminCatalogCategory,
+    deleteAdminCatalogProduct,
+    deleteAdminCatalogVariant,
     deleteVariantImage,
     listAdminCatalogCategories,
     listAdminCatalogProducts,
+    listAdminDiscounts,
     listAdminUsers,
     listVariantImages,
     presignVariantImage,
@@ -17,6 +23,7 @@ import {
     type AdminCatalogCategory,
     type AdminCatalogProduct,
     type AdminCatalogVariant,
+    type AdminDiscount,
     type AdminUser,
     type AdminVariantImage,
 } from '../../lib/api/admin';
@@ -27,6 +34,8 @@ import Button from '../ui/Button';
 import TextField from '../ui/TextField';
 
 type NoticeTone = 'info' | 'success' | 'error';
+type CategoryMode = 'existing' | 'create';
+type ProductMode = 'existing' | 'create';
 
 function asNumberOrNull(value: string) {
     const text = String(value || '').trim();
@@ -58,6 +67,7 @@ export default function AdminPage() {
     const [users, setUsers] = useState<AdminUser[]>([]);
     const [categories, setCategories] = useState<AdminCatalogCategory[]>([]);
     const [products, setProducts] = useState<AdminCatalogProduct[]>([]);
+    const [discounts, setDiscounts] = useState<AdminDiscount[]>([]);
 
     const [createAdminForm, setCreateAdminForm] = useState({
         email: '',
@@ -66,23 +76,19 @@ export default function AdminPage() {
         lastName: '',
     });
 
-    const [createProductForm, setCreateProductForm] = useState({
-        categoryId: '',
+    const [createCategoryMode, setCreateCategoryMode] = useState<CategoryMode>('existing');
+    const [createProductMode, setCreateProductMode] = useState<ProductMode>('create');
+    const [createSelectedCategoryId, setCreateSelectedCategoryId] = useState('');
+    const [createSelectedProductId, setCreateSelectedProductId] = useState('');
+
+    const [createCategoryForm, setCreateCategoryForm] = useState({
         name: '',
         slug: '',
         description: '',
         isActive: true,
-        sku: '',
-        variantName: '',
-        price: '',
-        initialStock: '',
-        weightGrams: '',
-        sizeLabel: '',
     });
 
-    const [selectedProductId, setSelectedProductId] = useState<number>(0);
-    const [updateProductForm, setUpdateProductForm] = useState({
-        categoryId: '',
+    const [createProductForm, setCreateProductForm] = useState({
         name: '',
         slug: '',
         description: '',
@@ -98,7 +104,18 @@ export default function AdminPage() {
         sizeLabel: '',
     });
 
-    const [selectedVariantId, setSelectedVariantId] = useState<number>(0);
+    const [editCategoryId, setEditCategoryId] = useState('');
+    const [editProductId, setEditProductId] = useState<number>(0);
+    const [editVariantId, setEditVariantId] = useState<number>(0);
+
+    const [updateProductForm, setUpdateProductForm] = useState({
+        categoryId: '',
+        name: '',
+        slug: '',
+        description: '',
+        isActive: true,
+    });
+
     const [updateVariantForm, setUpdateVariantForm] = useState({
         sku: '',
         variantName: '',
@@ -114,6 +131,16 @@ export default function AdminPage() {
     const [uploadAltText, setUploadAltText] = useState('');
     const [uploadSortOrder, setUploadSortOrder] = useState('0');
 
+    const [discountForm, setDiscountForm] = useState({
+        code: '',
+        percentage: '',
+        isActive: true,
+        startsAt: '',
+        expiresAt: '',
+        maxUses: '',
+        minSubtotal: '',
+    });
+
     function pushNotice(tone: NoticeTone, message: string) {
         setNoticeTone(tone);
         setNotice(message);
@@ -122,29 +149,16 @@ export default function AdminPage() {
     async function loadData() {
         setLoadingData(true);
         try {
-            const [usersRes, categoriesRes, productsRes] = await Promise.all([
+            const [usersRes, categoriesRes, productsRes, discountsRes] = await Promise.all([
                 listAdminUsers(),
                 listAdminCatalogCategories(),
                 listAdminCatalogProducts(),
+                listAdminDiscounts(),
             ]);
-            const nextUsers = Array.isArray(usersRes.data) ? usersRes.data : [];
-            const nextCategories = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
-            const nextProducts = Array.isArray(productsRes.data) ? productsRes.data : [];
-
-            setUsers(nextUsers);
-            setCategories(nextCategories);
-            setProducts(nextProducts);
-
-            if (nextProducts.length) {
-                setSelectedProductId((current) => {
-                    if (current && nextProducts.some((item) => item.id === current)) {
-                        return current;
-                    }
-                    return nextProducts[0].id;
-                });
-            } else {
-                setSelectedProductId(0);
-            }
+            setUsers(Array.isArray(usersRes.data) ? usersRes.data : []);
+            setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
+            setProducts(Array.isArray(productsRes.data) ? productsRes.data : []);
+            setDiscounts(Array.isArray(discountsRes.data) ? discountsRes.data : []);
         } catch (err) {
             pushNotice('error', err instanceof Error ? err.message : 'No se pudieron cargar datos de admin.');
         } finally {
@@ -198,7 +212,6 @@ export default function AdminPage() {
         if (accessState !== 'denied' || !accessRedirectPath) {
             return;
         }
-
         if (typeof window === 'undefined') {
             return;
         }
@@ -206,20 +219,62 @@ export default function AdminPage() {
         window.location.assign(accessRedirectPath);
     }, [accessState, accessRedirectPath]);
 
-    const selectedProduct = useMemo(
-        () => products.find((item) => item.id === selectedProductId) || null,
-        [products, selectedProductId]
+    const createFilteredProducts = useMemo(() => {
+        if (!createSelectedCategoryId) {
+            return products;
+        }
+        return products.filter((item) => item.category && String(item.category.id) === createSelectedCategoryId);
+    }, [products, createSelectedCategoryId]);
+
+    const filteredEditProducts = useMemo(() => {
+        if (!editCategoryId) {
+            return [];
+        }
+        return products.filter((item) => item.category && String(item.category.id) === editCategoryId);
+    }, [products, editCategoryId]);
+
+    const selectedEditProduct = useMemo(
+        () => filteredEditProducts.find((item) => item.id === editProductId) || null,
+        [filteredEditProducts, editProductId]
     );
 
-    const selectedVariant = useMemo(() => {
-        if (!selectedProduct || !Array.isArray(selectedProduct.variants)) {
+    const selectedEditVariant = useMemo(() => {
+        if (!selectedEditProduct) {
             return null;
         }
-        return selectedProduct.variants.find((item) => item.id === selectedVariantId) || null;
-    }, [selectedProduct, selectedVariantId]);
+        return selectedEditProduct.variants.find((item) => item.id === editVariantId) || null;
+    }, [selectedEditProduct, editVariantId]);
 
     useEffect(() => {
-        if (!selectedProduct) {
+        setEditCategoryId((current) => {
+            if (current && categories.some((category) => String(category.id) === current)) {
+                return current;
+            }
+
+            const firstWithCategory = products.find((item) => item.category);
+            if (firstWithCategory && firstWithCategory.category) {
+                return String(firstWithCategory.category.id);
+            }
+
+            if (categories.length) {
+                return String(categories[0].id);
+            }
+
+            return '';
+        });
+    }, [categories, products]);
+
+    useEffect(() => {
+        setEditProductId((current) => {
+            if (current && filteredEditProducts.some((item) => item.id === current)) {
+                return current;
+            }
+            return filteredEditProducts.length ? filteredEditProducts[0].id : 0;
+        });
+    }, [filteredEditProducts]);
+
+    useEffect(() => {
+        if (!selectedEditProduct) {
             setUpdateProductForm({
                 categoryId: '',
                 name: '',
@@ -227,32 +282,28 @@ export default function AdminPage() {
                 description: '',
                 isActive: true,
             });
-            setSelectedVariantId(0);
+            setEditVariantId(0);
             return;
         }
 
         setUpdateProductForm({
-            categoryId: selectedProduct.category ? String(selectedProduct.category.id) : '',
-            name: selectedProduct.name || '',
-            slug: selectedProduct.slug || '',
-            description: selectedProduct.description || '',
-            isActive: Boolean(selectedProduct.isActive),
+            categoryId: selectedEditProduct.category ? String(selectedEditProduct.category.id) : '',
+            name: selectedEditProduct.name || '',
+            slug: selectedEditProduct.slug || '',
+            description: selectedEditProduct.description || '',
+            isActive: Boolean(selectedEditProduct.isActive),
         });
 
-        if (selectedProduct.variants.length) {
-            setSelectedVariantId((current) => {
-                if (current && selectedProduct.variants.some((item) => item.id === current)) {
-                    return current;
-                }
-                return selectedProduct.variants[0].id;
-            });
-        } else {
-            setSelectedVariantId(0);
-        }
-    }, [selectedProduct]);
+        setEditVariantId((current) => {
+            if (current && selectedEditProduct.variants.some((item) => item.id === current)) {
+                return current;
+            }
+            return selectedEditProduct.variants.length ? selectedEditProduct.variants[0].id : 0;
+        });
+    }, [selectedEditProduct]);
 
     useEffect(() => {
-        if (!selectedVariant) {
+        if (!selectedEditVariant) {
             setUpdateVariantForm({
                 sku: '',
                 variantName: '',
@@ -261,22 +312,22 @@ export default function AdminPage() {
                 sizeLabel: '',
                 stock: '',
             });
-            setVariantImages([]);
-            setImageDrafts({});
             return;
         }
 
         setUpdateVariantForm({
-            sku: selectedVariant.sku || '',
-            variantName: selectedVariant.variantName || '',
-            price: selectedVariant.price !== null && selectedVariant.price !== undefined ? String(selectedVariant.price) : '',
-            weightGrams: selectedVariant.weightGrams !== null && selectedVariant.weightGrams !== undefined
-                ? String(selectedVariant.weightGrams)
+            sku: selectedEditVariant.sku || '',
+            variantName: selectedEditVariant.variantName || '',
+            price: selectedEditVariant.price !== null && selectedEditVariant.price !== undefined
+                ? String(selectedEditVariant.price)
                 : '',
-            sizeLabel: selectedVariant.sizeLabel || '',
-            stock: String(selectedVariant.stock || 0),
+            weightGrams: selectedEditVariant.weightGrams !== null && selectedEditVariant.weightGrams !== undefined
+                ? String(selectedEditVariant.weightGrams)
+                : '',
+            sizeLabel: selectedEditVariant.sizeLabel || '',
+            stock: String(selectedEditVariant.stock || 0),
         });
-    }, [selectedVariant]);
+    }, [selectedEditVariant]);
 
     async function refreshVariantImages(variantId: number) {
         if (!variantId) {
@@ -303,13 +354,13 @@ export default function AdminPage() {
     }
 
     useEffect(() => {
-        if (!selectedVariantId) {
+        if (!editVariantId) {
             setVariantImages([]);
             setImageDrafts({});
             return;
         }
-        refreshVariantImages(selectedVariantId);
-    }, [selectedVariantId]);
+        refreshVariantImages(editVariantId);
+    }, [editVariantId]);
 
     async function handleCreateAdminUser(event: React.FormEvent) {
         event.preventDefault();
@@ -330,33 +381,73 @@ export default function AdminPage() {
         }
     }
 
-    async function handleCreateProduct(event: React.FormEvent) {
+    async function handleCreateCatalog(event: React.FormEvent) {
         event.preventDefault();
         try {
-            const payload = {
-                categoryId: createProductForm.categoryId ? Number(createProductForm.categoryId) : null,
-                name: createProductForm.name.trim(),
-                slug: createProductForm.slug.trim().toLowerCase(),
-                description: createProductForm.description.trim() || null,
-                isActive: createProductForm.isActive,
-                sku: createProductForm.sku.trim(),
-                variantName: createProductForm.variantName.trim() || null,
-                price: Number(createProductForm.price),
-                initialStock: asIntegerOrZero(createProductForm.initialStock),
-                weightGrams: asNumberOrNull(createProductForm.weightGrams),
-                sizeLabel: createProductForm.sizeLabel.trim() || null,
-            };
-            const res = await createAdminCatalogProduct(payload);
-            pushNotice(
-                'success',
-                `Producto creado: #${res.data.product.id}, variante ${res.data.variant.sku}.`
-            );
-            setCreateProductForm({
-                categoryId: '',
+            if (createProductMode === 'existing') {
+                const productId = Number(createSelectedProductId || 0);
+                if (!productId) {
+                    pushNotice('error', 'Selecciona un producto para agregar variante.');
+                    return;
+                }
+
+                await createAdminCatalogVariant(productId, {
+                    sku: createVariantForm.sku.trim(),
+                    variantName: createVariantForm.variantName.trim() || null,
+                    price: Number(createVariantForm.price),
+                    initialStock: asIntegerOrZero(createVariantForm.initialStock),
+                    weightGrams: asNumberOrNull(createVariantForm.weightGrams),
+                    sizeLabel: createVariantForm.sizeLabel.trim() || null,
+                });
+
+                pushNotice('success', 'Variante creada en producto existente.');
+            } else {
+                let categoryId: number | null = null;
+                if (createCategoryMode === 'existing') {
+                    categoryId = createSelectedCategoryId ? Number(createSelectedCategoryId) : null;
+                } else {
+                    const createdCategory = await createAdminCatalogCategory({
+                        name: createCategoryForm.name.trim(),
+                        slug: createCategoryForm.slug.trim().toLowerCase(),
+                        description: createCategoryForm.description.trim() || null,
+                        isActive: createCategoryForm.isActive,
+                    });
+                    categoryId = createdCategory.data.id;
+                }
+
+                const created = await createAdminCatalogProduct({
+                    categoryId,
+                    name: createProductForm.name.trim(),
+                    slug: createProductForm.slug.trim().toLowerCase(),
+                    description: createProductForm.description.trim() || null,
+                    isActive: createProductForm.isActive,
+                    sku: createVariantForm.sku.trim(),
+                    variantName: createVariantForm.variantName.trim() || null,
+                    price: Number(createVariantForm.price),
+                    initialStock: asIntegerOrZero(createVariantForm.initialStock),
+                    weightGrams: asNumberOrNull(createVariantForm.weightGrams),
+                    sizeLabel: createVariantForm.sizeLabel.trim() || null,
+                });
+
+                pushNotice(
+                    'success',
+                    `Producto creado: #${created.data.product.id}, variante ${created.data.variant.sku}.`
+                );
+            }
+
+            setCreateCategoryForm({
                 name: '',
                 slug: '',
                 description: '',
                 isActive: true,
+            });
+            setCreateProductForm({
+                name: '',
+                slug: '',
+                description: '',
+                isActive: true,
+            });
+            setCreateVariantForm({
                 sku: '',
                 variantName: '',
                 price: '',
@@ -364,21 +455,22 @@ export default function AdminPage() {
                 weightGrams: '',
                 sizeLabel: '',
             });
+            setCreateSelectedProductId('');
             await loadData();
         } catch (err) {
-            pushNotice('error', err instanceof Error ? err.message : 'No se pudo crear producto.');
+            pushNotice('error', err instanceof Error ? err.message : 'No se pudo completar creacion.');
         }
     }
 
     async function handleUpdateProduct(event: React.FormEvent) {
         event.preventDefault();
-        if (!selectedProductId) {
+        if (!editProductId) {
             pushNotice('error', 'Selecciona un producto.');
             return;
         }
 
         try {
-            await updateAdminCatalogProduct(selectedProductId, {
+            await updateAdminCatalogProduct(editProductId, {
                 categoryId: updateProductForm.categoryId ? Number(updateProductForm.categoryId) : null,
                 name: updateProductForm.name.trim(),
                 slug: updateProductForm.slug.trim().toLowerCase(),
@@ -392,53 +484,22 @@ export default function AdminPage() {
         }
     }
 
-    async function handleCreateVariant(event: React.FormEvent) {
-        event.preventDefault();
-        if (!selectedProductId) {
-            pushNotice('error', 'Selecciona un producto para crear la variante.');
-            return;
-        }
-
-        try {
-            await createAdminCatalogVariant(selectedProductId, {
-                sku: createVariantForm.sku.trim(),
-                variantName: createVariantForm.variantName.trim() || null,
-                price: Number(createVariantForm.price),
-                initialStock: asIntegerOrZero(createVariantForm.initialStock),
-                weightGrams: asNumberOrNull(createVariantForm.weightGrams),
-                sizeLabel: createVariantForm.sizeLabel.trim() || null,
-            });
-            pushNotice('success', 'Variante creada.');
-            setCreateVariantForm({
-                sku: '',
-                variantName: '',
-                price: '',
-                initialStock: '',
-                weightGrams: '',
-                sizeLabel: '',
-            });
-            await loadData();
-        } catch (err) {
-            pushNotice('error', err instanceof Error ? err.message : 'No se pudo crear variante.');
-        }
-    }
-
     async function handleUpdateVariant(event: React.FormEvent) {
         event.preventDefault();
-        if (!selectedVariantId) {
+        if (!editVariantId) {
             pushNotice('error', 'Selecciona una variante.');
             return;
         }
 
         try {
-            await updateAdminCatalogVariant(selectedVariantId, {
+            await updateAdminCatalogVariant(editVariantId, {
                 sku: updateVariantForm.sku.trim(),
                 variantName: updateVariantForm.variantName.trim() || null,
                 price: Number(updateVariantForm.price),
                 weightGrams: asNumberOrNull(updateVariantForm.weightGrams),
                 sizeLabel: updateVariantForm.sizeLabel.trim() || null,
             });
-            await updateAdminCatalogVariantStock(selectedVariantId, asIntegerOrZero(updateVariantForm.stock));
+            await updateAdminCatalogVariantStock(editVariantId, asIntegerOrZero(updateVariantForm.stock));
             pushNotice('success', 'Variante y stock actualizados.');
             await loadData();
         } catch (err) {
@@ -446,9 +507,54 @@ export default function AdminPage() {
         }
     }
 
+    async function handleDeleteByScope() {
+        const categoryId = Number(editCategoryId || 0);
+        if (editVariantId) {
+            const confirmed = window.confirm(
+                `Vas a eliminar solo la variante ${selectedEditVariant?.sku || `#${editVariantId}`}. Esta accion no se puede deshacer.`
+            );
+            if (!confirmed) {
+                return;
+            }
+            await deleteAdminCatalogVariant(editVariantId);
+            pushNotice('success', 'Variante eliminada.');
+            await loadData();
+            return;
+        }
+
+        if (editProductId) {
+            const confirmed = window.confirm(
+                `Vas a eliminar el producto ${selectedEditProduct?.name || `#${editProductId}`} con todas sus variantes.`
+            );
+            if (!confirmed) {
+                return;
+            }
+            await deleteAdminCatalogProduct(editProductId);
+            pushNotice('success', 'Producto eliminado con sus variantes.');
+            await loadData();
+            return;
+        }
+
+        if (categoryId) {
+            const category = categories.find((item) => item.id === categoryId);
+            const confirmed = window.confirm(
+                `Vas a eliminar la categoria ${category ? category.name : `#${categoryId}`} y todo su arbol de catalogo.`
+            );
+            if (!confirmed) {
+                return;
+            }
+            await deleteAdminCatalogCategory(categoryId);
+            pushNotice('success', 'Categoria eliminada con su arbol de catalogo.');
+            await loadData();
+            return;
+        }
+
+        pushNotice('error', 'Selecciona categoria, producto o variante para eliminar.');
+    }
+
     async function handleUploadVariantImage(event: React.FormEvent) {
         event.preventDefault();
-        if (!selectedVariantId) {
+        if (!editVariantId) {
             pushNotice('error', 'Selecciona una variante para subir imagenes.');
             return;
         }
@@ -458,7 +564,7 @@ export default function AdminPage() {
         }
 
         try {
-            const presigned = await presignVariantImage(selectedVariantId, {
+            const presigned = await presignVariantImage(editVariantId, {
                 contentType: uploadFile.type,
                 byteSize: uploadFile.size,
             });
@@ -473,7 +579,7 @@ export default function AdminPage() {
                 throw new Error(`Fallo la subida a R2 (${putRes.status})`);
             }
 
-            await registerVariantImage(selectedVariantId, {
+            await registerVariantImage(editVariantId, {
                 imageKey: signed.imageKey,
                 contentType: uploadFile.type,
                 byteSize: uploadFile.size,
@@ -485,42 +591,70 @@ export default function AdminPage() {
             setUploadAltText('');
             setUploadSortOrder('0');
             pushNotice('success', 'Imagen registrada correctamente.');
-            await refreshVariantImages(selectedVariantId);
+            await refreshVariantImages(editVariantId);
         } catch (err) {
             pushNotice('error', err instanceof Error ? err.message : 'No se pudo subir la imagen.');
         }
     }
 
     async function handleUpdateImage(imageId: number) {
-        if (!selectedVariantId) {
+        if (!editVariantId) {
             pushNotice('error', 'Selecciona una variante.');
             return;
         }
 
         const draft = imageDrafts[imageId] || { altText: '', sortOrder: '0' };
         try {
-            await updateVariantImage(selectedVariantId, imageId, {
+            await updateVariantImage(editVariantId, imageId, {
                 altText: draft.altText.trim() || null,
                 sortOrder: asIntegerOrZero(draft.sortOrder),
             });
             pushNotice('success', 'Imagen actualizada.');
-            await refreshVariantImages(selectedVariantId);
+            await refreshVariantImages(editVariantId);
         } catch (err) {
             pushNotice('error', err instanceof Error ? err.message : 'No se pudo actualizar imagen.');
         }
     }
 
     async function handleDeleteImage(imageId: number) {
-        if (!selectedVariantId) {
+        if (!editVariantId) {
             pushNotice('error', 'Selecciona una variante.');
             return;
         }
         try {
-            await deleteVariantImage(selectedVariantId, imageId);
+            await deleteVariantImage(editVariantId, imageId);
             pushNotice('success', 'Imagen eliminada.');
-            await refreshVariantImages(selectedVariantId);
+            await refreshVariantImages(editVariantId);
         } catch (err) {
             pushNotice('error', err instanceof Error ? err.message : 'No se pudo eliminar imagen.');
+        }
+    }
+
+    async function handleCreateDiscount(event: React.FormEvent) {
+        event.preventDefault();
+        try {
+            await createAdminDiscount({
+                code: discountForm.code.trim(),
+                percentage: Number(discountForm.percentage),
+                isActive: discountForm.isActive,
+                startsAt: discountForm.startsAt.trim() || null,
+                expiresAt: discountForm.expiresAt.trim() || null,
+                maxUses: discountForm.maxUses.trim() ? asIntegerOrZero(discountForm.maxUses) : null,
+                minSubtotal: discountForm.minSubtotal.trim() ? Number(discountForm.minSubtotal) : null,
+            });
+            pushNotice('success', 'Codigo de descuento creado.');
+            setDiscountForm({
+                code: '',
+                percentage: '',
+                isActive: true,
+                startsAt: '',
+                expiresAt: '',
+                maxUses: '',
+                minSubtotal: '',
+            });
+            await loadData();
+        } catch (err) {
+            pushNotice('error', err instanceof Error ? err.message : 'No se pudo crear el descuento.');
         }
     }
 
@@ -547,7 +681,7 @@ export default function AdminPage() {
         <section className="surface page admin-page">
             <div className="page__header">
                 <h1>Consola admin</h1>
-                <p className="muted">Gestion de administradores, productos, variantes e imagenes.</p>
+                <p className="muted">Gestion de administradores, catalogo, variantes, imagenes y descuentos.</p>
             </div>
 
             {notice ? <Alert tone={noticeTone}>{notice}</Alert> : null}
@@ -598,34 +732,40 @@ export default function AdminPage() {
                 </section>
 
                 <section className="card">
-                    <h2 className="card__title">Crear producto</h2>
-                    <form className="form" onSubmit={handleCreateProduct}>
-                        <div className="form__grid">
-                            <TextField
-                                label="Nombre de producto"
-                                value={createProductForm.name}
-                                onChange={(event) => setCreateProductForm((prev) => ({ ...prev, name: event.target.value }))}
-                                required
-                            />
-                            <TextField
-                                label="Slug"
-                                value={createProductForm.slug}
-                                onChange={(event) => setCreateProductForm((prev) => ({ ...prev, slug: event.target.value }))}
-                                required
-                            />
-                        </div>
-                        <TextField
-                            label="Descripcion"
-                            value={createProductForm.description}
-                            onChange={(event) => setCreateProductForm((prev) => ({ ...prev, description: event.target.value }))}
-                        />
+                    <h2 className="card__title">Crear categoria/producto/variante</h2>
+                    <form className="form" onSubmit={handleCreateCatalog}>
                         <div className="form__grid">
                             <label className="field">
-                                <span className="field__label">Categoria</span>
+                                <span className="field__label">Modo categoria</span>
                                 <select
                                     className="field__input"
-                                    value={createProductForm.categoryId}
-                                    onChange={(event) => setCreateProductForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+                                    value={createCategoryMode}
+                                    onChange={(event) => setCreateCategoryMode(event.target.value as CategoryMode)}
+                                >
+                                    <option value="existing">Usar categoria existente</option>
+                                    <option value="create">Crear nueva categoria</option>
+                                </select>
+                            </label>
+                            <label className="field">
+                                <span className="field__label">Modo producto</span>
+                                <select
+                                    className="field__input"
+                                    value={createProductMode}
+                                    onChange={(event) => setCreateProductMode(event.target.value as ProductMode)}
+                                >
+                                    <option value="create">Crear nuevo producto</option>
+                                    <option value="existing">Usar producto existente</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        {createCategoryMode === 'existing' ? (
+                            <label className="field">
+                                <span className="field__label">Categoria (creacion)</span>
+                                <select
+                                    className="field__input"
+                                    value={createSelectedCategoryId}
+                                    onChange={(event) => setCreateSelectedCategoryId(event.target.value)}
                                 >
                                     <option value="">Sin categoria</option>
                                     {categories.map((category) => (
@@ -635,172 +775,76 @@ export default function AdminPage() {
                                     ))}
                                 </select>
                             </label>
+                        ) : (
+                            <>
+                                <p className="field__label">Nueva categoria</p>
+                                <div className="form__grid">
+                                    <TextField
+                                        label="Nombre categoria"
+                                        value={createCategoryForm.name}
+                                        onChange={(event) => setCreateCategoryForm((prev) => ({ ...prev, name: event.target.value }))}
+                                        required
+                                    />
+                                    <TextField
+                                        label="Slug categoria"
+                                        value={createCategoryForm.slug}
+                                        onChange={(event) => setCreateCategoryForm((prev) => ({ ...prev, slug: event.target.value }))}
+                                        required
+                                    />
+                                </div>
+                                <TextField
+                                    label="Descripcion categoria"
+                                    value={createCategoryForm.description}
+                                    onChange={(event) => setCreateCategoryForm((prev) => ({ ...prev, description: event.target.value }))}
+                                />
+                            </>
+                        )}
+
+                        {createProductMode === 'existing' ? (
                             <label className="field">
-                                <span className="field__label">Activo</span>
+                                <span className="field__label">Producto existente (creacion)</span>
                                 <select
                                     className="field__input"
-                                    value={createProductForm.isActive ? '1' : '0'}
-                                    onChange={(event) => setCreateProductForm((prev) => ({ ...prev, isActive: event.target.value === '1' }))}
+                                    value={createSelectedProductId}
+                                    onChange={(event) => setCreateSelectedProductId(event.target.value)}
                                 >
-                                    <option value="1">Si</option>
-                                    <option value="0">No</option>
-                                </select>
-                            </label>
-                        </div>
-
-                        <p className="field__label">Variante inicial</p>
-                        <div className="form__grid">
-                            <TextField
-                                label="SKU"
-                                value={createProductForm.sku}
-                                onChange={(event) => setCreateProductForm((prev) => ({ ...prev, sku: event.target.value }))}
-                                required
-                            />
-                            <TextField
-                                label="Nombre variante"
-                                value={createProductForm.variantName}
-                                onChange={(event) => setCreateProductForm((prev) => ({ ...prev, variantName: event.target.value }))}
-                            />
-                        </div>
-                        <div className="form__grid">
-                            <TextField
-                                label="Precio"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={createProductForm.price}
-                                onChange={(event) => setCreateProductForm((prev) => ({ ...prev, price: event.target.value }))}
-                                required
-                            />
-                            <TextField
-                                label="Stock inicial"
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={createProductForm.initialStock}
-                                onChange={(event) => setCreateProductForm((prev) => ({ ...prev, initialStock: event.target.value }))}
-                                required
-                            />
-                        </div>
-                        <div className="form__grid">
-                            <TextField
-                                label="Peso (gramos)"
-                                type="number"
-                                min="0"
-                                step="1"
-                                value={createProductForm.weightGrams}
-                                onChange={(event) => setCreateProductForm((prev) => ({ ...prev, weightGrams: event.target.value }))}
-                            />
-                            <TextField
-                                label="Talla"
-                                value={createProductForm.sizeLabel}
-                                onChange={(event) => setCreateProductForm((prev) => ({ ...prev, sizeLabel: event.target.value }))}
-                            />
-                        </div>
-                        <div className="form__actions">
-                            <Button type="submit">Crear producto + variante</Button>
-                        </div>
-                    </form>
-                </section>
-            </div>
-
-            <div className="admin-page__grid">
-                <section className="card">
-                    <h2 className="card__title">Editar producto</h2>
-                    <label className="field">
-                        <span className="field__label">Producto</span>
-                        <select
-                            className="field__input"
-                            value={selectedProductId || ''}
-                            onChange={(event) => setSelectedProductId(Number(event.target.value) || 0)}
-                        >
-                            <option value="">Selecciona un producto</option>
-                            {products.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                    {item.name} ({item.slug})
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    <form className="form" onSubmit={handleUpdateProduct}>
-                        <div className="form__grid">
-                            <TextField
-                                label="Nombre"
-                                value={updateProductForm.name}
-                                onChange={(event) => setUpdateProductForm((prev) => ({ ...prev, name: event.target.value }))}
-                                required
-                            />
-                            <TextField
-                                label="Slug"
-                                value={updateProductForm.slug}
-                                onChange={(event) => setUpdateProductForm((prev) => ({ ...prev, slug: event.target.value }))}
-                                required
-                            />
-                        </div>
-                        <TextField
-                            label="Descripcion"
-                            value={updateProductForm.description}
-                            onChange={(event) => setUpdateProductForm((prev) => ({ ...prev, description: event.target.value }))}
-                        />
-                        <div className="form__grid">
-                            <label className="field">
-                                <span className="field__label">Categoria</span>
-                                <select
-                                    className="field__input"
-                                    value={updateProductForm.categoryId}
-                                    onChange={(event) => setUpdateProductForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-                                >
-                                    <option value="">Sin categoria</option>
-                                    {categories.map((category) => (
-                                        <option key={category.id} value={category.id}>
-                                            {category.name}
+                                    <option value="">Selecciona un producto</option>
+                                    {createFilteredProducts.map((item) => (
+                                        <option key={item.id} value={item.id}>
+                                            {item.name} ({item.slug})
                                         </option>
                                     ))}
                                 </select>
                             </label>
-                            <label className="field">
-                                <span className="field__label">Activo</span>
-                                <select
-                                    className="field__input"
-                                    value={updateProductForm.isActive ? '1' : '0'}
-                                    onChange={(event) => setUpdateProductForm((prev) => ({ ...prev, isActive: event.target.value === '1' }))}
-                                >
-                                    <option value="1">Si</option>
-                                    <option value="0">No</option>
-                                </select>
-                            </label>
-                        </div>
-                        <div className="form__actions">
-                            <Button type="submit">Guardar producto</Button>
-                        </div>
-                    </form>
-                </section>
+                        ) : (
+                            <>
+                                <p className="field__label">Nuevo producto</p>
+                                <div className="form__grid">
+                                    <TextField
+                                        label="Nombre producto"
+                                        value={createProductForm.name}
+                                        onChange={(event) => setCreateProductForm((prev) => ({ ...prev, name: event.target.value }))}
+                                        required
+                                    />
+                                    <TextField
+                                        label="Slug producto"
+                                        value={createProductForm.slug}
+                                        onChange={(event) => setCreateProductForm((prev) => ({ ...prev, slug: event.target.value }))}
+                                        required
+                                    />
+                                </div>
+                                <TextField
+                                    label="Descripcion producto"
+                                    value={createProductForm.description}
+                                    onChange={(event) => setCreateProductForm((prev) => ({ ...prev, description: event.target.value }))}
+                                />
+                            </>
+                        )}
 
-                <section className="card">
-                    <h2 className="card__title">Variantes e imagenes</h2>
-                    <p className="card__meta">Dashboard fuera de alcance en esta iteracion.</p>
-                    <label className="field">
-                        <span className="field__label">Variante</span>
-                        <select
-                            className="field__input"
-                            value={selectedVariantId || ''}
-                            onChange={(event) => setSelectedVariantId(Number(event.target.value) || 0)}
-                        >
-                            <option value="">Selecciona una variante</option>
-                            {selectedProduct && selectedProduct.variants.map((item: AdminCatalogVariant) => (
-                                <option key={item.id} value={item.id}>
-                                    {item.sku} - {item.variantName || 'Sin nombre'}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-
-                    <form className="form" onSubmit={handleCreateVariant}>
-                        <p className="field__label">Nueva variante</p>
+                        <p className="field__label">Datos de variante</p>
                         <div className="form__grid">
                             <TextField
-                                label="SKU"
+                                label="SKU variante"
                                 value={createVariantForm.sku}
                                 onChange={(event) => setCreateVariantForm((prev) => ({ ...prev, sku: event.target.value }))}
                                 required
@@ -813,7 +857,7 @@ export default function AdminPage() {
                         </div>
                         <div className="form__grid">
                             <TextField
-                                label="Precio"
+                                label="Precio variante"
                                 type="number"
                                 min="0"
                                 step="0.01"
@@ -822,7 +866,7 @@ export default function AdminPage() {
                                 required
                             />
                             <TextField
-                                label="Stock inicial"
+                                label="Stock inicial variante"
                                 type="number"
                                 min="0"
                                 step="1"
@@ -846,7 +890,89 @@ export default function AdminPage() {
                             />
                         </div>
                         <div className="form__actions">
-                            <Button type="submit">Crear variante</Button>
+                            <Button type="submit">
+                                {createProductMode === 'existing' ? 'Crear variante en producto existente' : 'Crear producto + variante'}
+                            </Button>
+                        </div>
+                    </form>
+                </section>
+            </div>
+
+            <div className="admin-page__grid">
+                <section className="card">
+                    <h2 className="card__title">Editar variante de producto</h2>
+
+                    <label className="field">
+                        <span className="field__label">Categoria (edicion)</span>
+                        <select
+                            className="field__input"
+                            value={editCategoryId}
+                            onChange={(event) => setEditCategoryId(event.target.value)}
+                        >
+                            <option value="">Selecciona una categoria</option>
+                            {categories.map((category) => (
+                                <option key={category.id} value={category.id}>
+                                    {category.name}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="field">
+                        <span className="field__label">Producto (edicion)</span>
+                        <select
+                            className="field__input"
+                            value={editProductId || ''}
+                            onChange={(event) => setEditProductId(Number(event.target.value) || 0)}
+                        >
+                            <option value="">Selecciona un producto</option>
+                            {filteredEditProducts.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                    {item.name} ({item.slug})
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="field">
+                        <span className="field__label">Variante (edicion)</span>
+                        <select
+                            className="field__input"
+                            value={editVariantId || ''}
+                            onChange={(event) => setEditVariantId(Number(event.target.value) || 0)}
+                        >
+                            <option value="">Selecciona una variante</option>
+                            {selectedEditProduct && selectedEditProduct.variants.map((item: AdminCatalogVariant) => (
+                                <option key={item.id} value={item.id}>
+                                    {item.sku} - {item.variantName || 'Sin nombre'}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <form className="form" onSubmit={handleUpdateProduct}>
+                        <p className="field__label">Editar producto seleccionado</p>
+                        <div className="form__grid">
+                            <TextField
+                                label="Nombre producto (edicion)"
+                                value={updateProductForm.name}
+                                onChange={(event) => setUpdateProductForm((prev) => ({ ...prev, name: event.target.value }))}
+                                required
+                            />
+                            <TextField
+                                label="Slug producto (edicion)"
+                                value={updateProductForm.slug}
+                                onChange={(event) => setUpdateProductForm((prev) => ({ ...prev, slug: event.target.value }))}
+                                required
+                            />
+                        </div>
+                        <TextField
+                            label="Descripcion producto (edicion)"
+                            value={updateProductForm.description}
+                            onChange={(event) => setUpdateProductForm((prev) => ({ ...prev, description: event.target.value }))}
+                        />
+                        <div className="form__actions">
+                            <Button type="submit">Guardar producto</Button>
                         </div>
                     </form>
 
@@ -854,20 +980,20 @@ export default function AdminPage() {
                         <p className="field__label">Editar variante seleccionada</p>
                         <div className="form__grid">
                             <TextField
-                                label="SKU"
+                                label="SKU variante (edicion)"
                                 value={updateVariantForm.sku}
                                 onChange={(event) => setUpdateVariantForm((prev) => ({ ...prev, sku: event.target.value }))}
                                 required
                             />
                             <TextField
-                                label="Nombre variante"
+                                label="Nombre variante (edicion)"
                                 value={updateVariantForm.variantName}
                                 onChange={(event) => setUpdateVariantForm((prev) => ({ ...prev, variantName: event.target.value }))}
                             />
                         </div>
                         <div className="form__grid">
                             <TextField
-                                label="Precio"
+                                label="Precio variante (edicion)"
                                 type="number"
                                 min="0"
                                 step="0.01"
@@ -876,7 +1002,7 @@ export default function AdminPage() {
                                 required
                             />
                             <TextField
-                                label="Stock"
+                                label="Stock variante (edicion)"
                                 type="number"
                                 min="0"
                                 step="1"
@@ -887,7 +1013,7 @@ export default function AdminPage() {
                         </div>
                         <div className="form__grid">
                             <TextField
-                                label="Peso (gramos)"
+                                label="Peso variante (edicion)"
                                 type="number"
                                 min="0"
                                 step="1"
@@ -895,7 +1021,7 @@ export default function AdminPage() {
                                 onChange={(event) => setUpdateVariantForm((prev) => ({ ...prev, weightGrams: event.target.value }))}
                             />
                             <TextField
-                                label="Talla"
+                                label="Talla variante (edicion)"
                                 value={updateVariantForm.sizeLabel}
                                 onChange={(event) => setUpdateVariantForm((prev) => ({ ...prev, sizeLabel: event.target.value }))}
                             />
@@ -905,6 +1031,15 @@ export default function AdminPage() {
                         </div>
                     </form>
 
+                    <div className="form__actions">
+                        <Button type="button" variant="danger" onClick={handleDeleteByScope}>
+                            Eliminar por alcance
+                        </Button>
+                    </div>
+                </section>
+
+                <section className="card">
+                    <h2 className="card__title">Imagenes de variante</h2>
                     <form className="form" onSubmit={handleUploadVariantImage}>
                         <p className="field__label">Subir imagen para variante</p>
                         <label className="field">
@@ -988,6 +1123,88 @@ export default function AdminPage() {
                     </div>
                 </section>
             </div>
+
+            <section className="card">
+                <h2 className="card__title">Codigos de descuento</h2>
+                <p className="card__meta">Codigos activos e historicos: {discounts.length}</p>
+                <div className="admin-list">
+                    {discounts.map((discount) => (
+                        <div className="admin-list__row" key={discount.id}>
+                            <strong>{discount.code}</strong>
+                            <span className="muted">
+                                {discount.percentage}% | usados {discount.usedCount}
+                                {discount.maxUses !== null ? `/${discount.maxUses}` : ''}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+                <form className="form" onSubmit={handleCreateDiscount}>
+                    <div className="form__grid">
+                        <TextField
+                            label="Codigo descuento"
+                            value={discountForm.code}
+                            onChange={(event) => setDiscountForm((prev) => ({ ...prev, code: event.target.value }))}
+                            required
+                        />
+                        <TextField
+                            label="Porcentaje descuento"
+                            type="number"
+                            min="1"
+                            max="100"
+                            step="1"
+                            value={discountForm.percentage}
+                            onChange={(event) => setDiscountForm((prev) => ({ ...prev, percentage: event.target.value }))}
+                            required
+                        />
+                    </div>
+                    <div className="form__grid">
+                        <TextField
+                            label="Min subtotal"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={discountForm.minSubtotal}
+                            onChange={(event) => setDiscountForm((prev) => ({ ...prev, minSubtotal: event.target.value }))}
+                        />
+                        <TextField
+                            label="Max usos"
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={discountForm.maxUses}
+                            onChange={(event) => setDiscountForm((prev) => ({ ...prev, maxUses: event.target.value }))}
+                        />
+                    </div>
+                    <div className="form__grid">
+                        <TextField
+                            label="Inicio"
+                            type="datetime-local"
+                            value={discountForm.startsAt}
+                            onChange={(event) => setDiscountForm((prev) => ({ ...prev, startsAt: event.target.value }))}
+                        />
+                        <TextField
+                            label="Expira"
+                            type="datetime-local"
+                            value={discountForm.expiresAt}
+                            onChange={(event) => setDiscountForm((prev) => ({ ...prev, expiresAt: event.target.value }))}
+                        />
+                    </div>
+                    <label className="field">
+                        <span className="field__label">Activo</span>
+                        <select
+                            className="field__input"
+                            value={discountForm.isActive ? '1' : '0'}
+                            onChange={(event) => setDiscountForm((prev) => ({ ...prev, isActive: event.target.value === '1' }))}
+                        >
+                            <option value="1">Si</option>
+                            <option value="0">No</option>
+                        </select>
+                    </label>
+                    <div className="form__actions">
+                        <Button type="submit">Crear descuento</Button>
+                    </div>
+                </form>
+            </section>
         </section>
     );
 }

@@ -144,9 +144,18 @@ Catalogo
 
 Admin
 - [ ] `/admin` bloquea usuarios no autenticados/no-admin
-- [ ] `/admin` con usuario admin muestra panel de usuarios+catalogo
+- [ ] `/admin` con usuario admin muestra panel de usuarios+catalogo+descuentos
 - [ ] crear admin desde panel refresca listado
-- [ ] crear producto+variante inicial desde panel funciona
+- [ ] crear variante en producto existente (modo `existing`) funciona
+- [ ] crear categoria nueva + producto nuevo + variante inicial (modo `create`) funciona
+- [ ] edicion jerarquica por selectores (`categoria -> producto -> variante`) funciona
+- [ ] selector de producto muestra `name (slug)` para desambiguar
+- [ ] editar stock solo en formulario de variante funciona
+- [ ] borrado por alcance funciona:
+- [ ] solo categoria seleccionada => elimina categoria
+- [ ] categoria + producto => elimina producto completo
+- [ ] categoria + producto + variante => elimina solo variante
+- [ ] crear codigo de descuento desde `/admin` y ver lista actualizada
 - [ ] cargar/registrar imagen de variante desde panel funciona
 
 Auth

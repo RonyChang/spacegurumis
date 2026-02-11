@@ -44,6 +44,34 @@ test('admin catalog routes include auth/admin and csrf on mutating endpoints', (
     assert.ok(stockNames.includes('authRequired'));
     assert.ok(stockNames.includes('adminRequired'));
     assert.ok(stockNames.includes('csrfRequired'));
+
+    const createCategory = findRoute(adminRoutes, '/api/v1/admin/catalog/categories', 'post');
+    assert.ok(createCategory, 'create category route exists');
+    const createCategoryNames = routeMiddlewareNames(createCategory);
+    assert.ok(createCategoryNames.includes('authRequired'));
+    assert.ok(createCategoryNames.includes('adminRequired'));
+    assert.ok(createCategoryNames.includes('csrfRequired'));
+
+    const deleteCategory = findRoute(adminRoutes, '/api/v1/admin/catalog/categories/:id', 'delete');
+    assert.ok(deleteCategory, 'delete category route exists');
+    const deleteCategoryNames = routeMiddlewareNames(deleteCategory);
+    assert.ok(deleteCategoryNames.includes('authRequired'));
+    assert.ok(deleteCategoryNames.includes('adminRequired'));
+    assert.ok(deleteCategoryNames.includes('csrfRequired'));
+
+    const deleteProduct = findRoute(adminRoutes, '/api/v1/admin/catalog/products/:id', 'delete');
+    assert.ok(deleteProduct, 'delete product route exists');
+    const deleteProductNames = routeMiddlewareNames(deleteProduct);
+    assert.ok(deleteProductNames.includes('authRequired'));
+    assert.ok(deleteProductNames.includes('adminRequired'));
+    assert.ok(deleteProductNames.includes('csrfRequired'));
+
+    const deleteVariant = findRoute(adminRoutes, '/api/v1/admin/catalog/variants/:id', 'delete');
+    assert.ok(deleteVariant, 'delete variant route exists');
+    const deleteVariantNames = routeMiddlewareNames(deleteVariant);
+    assert.ok(deleteVariantNames.includes('authRequired'));
+    assert.ok(deleteVariantNames.includes('adminRequired'));
+    assert.ok(deleteVariantNames.includes('csrfRequired'));
 });
 
 test('adminCatalog.service.createProduct creates product + variant + inventory transactionally', async () => {
@@ -152,3 +180,99 @@ test('adminCatalog.service.createProduct maps duplicate slug conflict and aborts
     }
 });
 
+test('adminCatalog.service.createCategory validates payload and maps duplicate slug conflict', async () => {
+    const originalCreateCategory = adminCatalogRepository.createCategory;
+
+    try {
+        let result = await adminCatalogService.createCategory({ name: '', slug: '' });
+        assert.equal(result.error, 'bad_request');
+
+        adminCatalogRepository.createCategory = async () => {
+            const error = new Error('duplicate slug');
+            error.name = 'SequelizeUniqueConstraintError';
+            error.errors = [{ path: 'slug' }];
+            throw error;
+        };
+
+        result = await adminCatalogService.createCategory({ name: 'Amigurumis', slug: 'amigurumis' });
+        assert.equal(result.error, 'conflict');
+        assert.equal(result.message, 'Slug ya registrado');
+    } finally {
+        adminCatalogRepository.createCategory = originalCreateCategory;
+    }
+});
+
+test('adminCatalog.service.deleteCategory returns not_found when category does not exist', async () => {
+    const originalFindCategory = adminCatalogRepository.findCategoryById;
+
+    try {
+        adminCatalogRepository.findCategoryById = async () => null;
+        const result = await adminCatalogService.deleteCategory(999);
+        assert.equal(result.error, 'not_found');
+    } finally {
+        adminCatalogRepository.findCategoryById = originalFindCategory;
+    }
+});
+
+test('adminCatalog.service.deleteProduct and deleteVariant return not_found when target does not exist', async () => {
+    const originalFindProduct = adminCatalogRepository.findProductById;
+    const originalFindVariant = adminCatalogRepository.findVariantById;
+
+    try {
+        adminCatalogRepository.findProductById = async () => null;
+        adminCatalogRepository.findVariantById = async () => null;
+
+        const productResult = await adminCatalogService.deleteProduct(12345);
+        assert.equal(productResult.error, 'not_found');
+
+        const variantResult = await adminCatalogService.deleteVariant(54321);
+        assert.equal(variantResult.error, 'not_found');
+    } finally {
+        adminCatalogRepository.findProductById = originalFindProduct;
+        adminCatalogRepository.findVariantById = originalFindVariant;
+    }
+});
+
+test('adminCatalog.service.deleteProduct and deleteVariant return cleanup counters', async () => {
+    const originalTransaction = sequelize.transaction;
+    const originalFindProduct = adminCatalogRepository.findProductById;
+    const originalFindVariant = adminCatalogRepository.findVariantById;
+    const originalDeleteProductScope = adminCatalogRepository.deleteProductScope;
+    const originalDeleteVariantScope = adminCatalogRepository.deleteVariantScope;
+
+    try {
+        sequelize.transaction = async (callback) => callback({ id: 'tx' });
+        adminCatalogRepository.findProductById = async () => ({ id: 10, name: 'Producto X' });
+        adminCatalogRepository.findVariantById = async () => ({ id: 20, sku: 'SKU-X' });
+        adminCatalogRepository.deleteProductScope = async () => ({
+            deletedProducts: 1,
+            deletedVariants: 2,
+            deletedProductImages: 0,
+            deletedVariantImages: 3,
+            deletedInventories: 2,
+            deletedCartItems: 1,
+        });
+        adminCatalogRepository.deleteVariantScope = async () => ({
+            deletedVariants: 1,
+            deletedVariantImages: 2,
+            deletedInventories: 1,
+            deletedCartItems: 0,
+        });
+
+        const productResult = await adminCatalogService.deleteProduct(10);
+        assert.equal(productResult.error, undefined);
+        assert.equal(productResult.data.deletedProducts, 1);
+        assert.equal(productResult.data.deletedVariants, 2);
+
+        const variantResult = await adminCatalogService.deleteVariant(20);
+        assert.equal(variantResult.error, undefined);
+        assert.equal(variantResult.data.deletedVariants, 1);
+        assert.equal(variantResult.data.deletedVariantImages, 2);
+    } finally {
+        sequelize.transaction = originalTransaction;
+        adminCatalogRepository.findProductById = originalFindProduct;
+        adminCatalogRepository.findVariantById = originalFindVariant;
+        adminCatalogRepository.deleteProductScope = originalDeleteProductScope;
+        adminCatalogRepository.deleteVariantScope = originalDeleteVariantScope;
+    }
+});

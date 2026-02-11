@@ -2,6 +2,7 @@ const express = require('express');
 const adminController = require('../controllers/admin.controller');
 const adminUsersController = require('../controllers/adminUsers.controller');
 const adminCatalogController = require('../controllers/adminCatalog.controller');
+const adminDiscountsController = require('../controllers/adminDiscounts.controller');
 const productImagesController = require('../controllers/productImages.controller');
 const siteAssetsController = require('../controllers/siteAssets.controller');
 const authRequired = require('../middlewares/authRequired');
@@ -34,6 +35,20 @@ router.get(
     adminRequired,
     adminCatalogController.listCategories
 );
+router.post(
+    '/api/v1/admin/catalog/categories',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.createCategory
+);
+router.delete(
+    '/api/v1/admin/catalog/categories/:id',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.deleteCategory
+);
 router.get(
     '/api/v1/admin/catalog/products',
     authRequired,
@@ -53,6 +68,13 @@ router.patch(
     csrfRequired,
     adminRequired,
     adminCatalogController.updateProduct
+);
+router.delete(
+    '/api/v1/admin/catalog/products/:id',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.deleteProduct
 );
 router.post(
     '/api/v1/admin/catalog/products/:id/variants',
@@ -74,6 +96,28 @@ router.patch(
     csrfRequired,
     adminRequired,
     adminCatalogController.updateVariantStock
+);
+router.delete(
+    '/api/v1/admin/catalog/variants/:id',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.deleteVariant
+);
+
+// Admin discounts
+router.get(
+    '/api/v1/admin/discounts',
+    authRequired,
+    adminRequired,
+    adminDiscountsController.list
+);
+router.post(
+    '/api/v1/admin/discounts',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminDiscountsController.create
 );
 
 // Product images (R2)
