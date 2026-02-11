@@ -1,4 +1,4 @@
-const { Product } = require('../models');
+const { ProductVariant } = require('../models');
 const r2 = require('../config/r2');
 const r2Service = require('./r2.service');
 const productImagesRepository = require('../repositories/productImages.repository');
@@ -23,25 +23,25 @@ function parseNonNegativeInt(value) {
     return parsed;
 }
 
-async function ensureProductExists(productId) {
-    const product = await Product.findByPk(productId, { attributes: ['id'] });
-    return product ? product.get({ plain: true }) : null;
+async function ensureVariantExists(variantId) {
+    const variant = await ProductVariant.findByPk(variantId, { attributes: ['id'] });
+    return variant ? variant.get({ plain: true }) : null;
 }
 
 async function presignProductImage(productId, { contentType, byteSize }) {
     const id = parsePositiveInt(productId);
     if (!id) {
-        return { error: 'bad_request', message: 'productId invalido' };
+        return { error: 'bad_request', message: 'variantId invalido' };
     }
 
-    const product = await ensureProductExists(id);
-    if (!product) {
+    const variant = await ensureVariantExists(id);
+    if (!variant) {
         return { error: 'not_found' };
     }
 
     try {
-        const data = r2Service.presignProductImageUpload({
-            productId: id,
+        const data = r2Service.presignVariantImageUpload({
+            variantId: id,
             contentType,
             byteSize,
         });
@@ -54,13 +54,13 @@ async function presignProductImage(productId, { contentType, byteSize }) {
     }
 }
 
-function validateImageKeyForProduct(productId, imageKey) {
+function validateImageKeyForVariant(variantId, imageKey) {
     const key = String(imageKey || '').trim().replace(/^\/+/, '');
     if (!key) {
         return { ok: false, message: 'imageKey requerido' };
     }
 
-    const expectedPrefix = `products/${productId}/`;
+    const expectedPrefix = `variants/${variantId}/`;
     if (!key.startsWith(expectedPrefix)) {
         return { ok: false, message: `imageKey debe empezar con ${expectedPrefix}` };
     }
@@ -71,11 +71,11 @@ function validateImageKeyForProduct(productId, imageKey) {
 async function registerProductImage(productId, payload) {
     const id = parsePositiveInt(productId);
     if (!id) {
-        return { error: 'bad_request', message: 'productId invalido' };
+        return { error: 'bad_request', message: 'variantId invalido' };
     }
 
-    const product = await ensureProductExists(id);
-    if (!product) {
+    const variant = await ensureVariantExists(id);
+    if (!variant) {
         return { error: 'not_found' };
     }
 
@@ -90,7 +90,7 @@ async function registerProductImage(productId, payload) {
         return { error: 'bad_request', message: validation.error || 'Solicitud invalida' };
     }
 
-    const keyValidation = validateImageKeyForProduct(id, payload && payload.imageKey);
+    const keyValidation = validateImageKeyForVariant(id, payload && payload.imageKey);
     if (!keyValidation.ok) {
         return { error: 'bad_request', message: keyValidation.message };
     }
@@ -128,7 +128,7 @@ async function registerProductImage(productId, payload) {
 
     try {
         const created = await productImagesRepository.createProductImage({
-            productId: id,
+            productVariantId: id,
             imageKey,
             publicUrl,
             contentType,
@@ -148,11 +148,11 @@ async function registerProductImage(productId, payload) {
 async function listProductImages(productId) {
     const id = parsePositiveInt(productId);
     if (!id) {
-        return { error: 'bad_request', message: 'productId invalido' };
+        return { error: 'bad_request', message: 'variantId invalido' };
     }
 
-    const product = await ensureProductExists(id);
-    if (!product) {
+    const variant = await ensureVariantExists(id);
+    if (!variant) {
         return { error: 'not_found' };
     }
 
@@ -163,7 +163,7 @@ async function listProductImages(productId) {
 async function updateProductImage(productId, imageId, patch) {
     const pid = parsePositiveInt(productId);
     if (!pid) {
-        return { error: 'bad_request', message: 'productId invalido' };
+        return { error: 'bad_request', message: 'variantId invalido' };
     }
 
     const iid = parsePositiveInt(imageId);
@@ -171,8 +171,8 @@ async function updateProductImage(productId, imageId, patch) {
         return { error: 'bad_request', message: 'imageId invalido' };
     }
 
-    const product = await ensureProductExists(pid);
-    if (!product) {
+    const variant = await ensureVariantExists(pid);
+    if (!variant) {
         return { error: 'not_found' };
     }
 
@@ -199,7 +199,7 @@ async function updateProductImage(productId, imageId, patch) {
 async function removeProductImage(productId, imageId) {
     const pid = parsePositiveInt(productId);
     if (!pid) {
-        return { error: 'bad_request', message: 'productId invalido' };
+        return { error: 'bad_request', message: 'variantId invalido' };
     }
 
     const iid = parsePositiveInt(imageId);
@@ -207,8 +207,8 @@ async function removeProductImage(productId, imageId) {
         return { error: 'bad_request', message: 'imageId invalido' };
     }
 
-    const product = await ensureProductExists(pid);
-    if (!product) {
+    const variant = await ensureVariantExists(pid);
+    if (!variant) {
         return { error: 'not_found' };
     }
 
@@ -227,4 +227,3 @@ module.exports = {
     updateProductImage,
     removeProductImage,
 };
-

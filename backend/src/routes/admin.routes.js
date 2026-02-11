@@ -11,34 +11,34 @@ router.get('/api/v1/admin/orders', authRequired, adminRequired, adminController.
 
 // Product images (R2)
 router.post(
-    '/api/v1/admin/products/:id/images/presign',
+    '/api/v1/admin/variants/:id/images/presign',
     authRequired,
     csrfRequired,
     adminRequired,
     productImagesController.presign
 );
 router.post(
-    '/api/v1/admin/products/:id/images',
+    '/api/v1/admin/variants/:id/images',
     authRequired,
     csrfRequired,
     adminRequired,
     productImagesController.register
 );
 router.get(
-    '/api/v1/admin/products/:id/images',
+    '/api/v1/admin/variants/:id/images',
     authRequired,
     adminRequired,
     productImagesController.list
 );
 router.patch(
-    '/api/v1/admin/products/:id/images/:imageId',
+    '/api/v1/admin/variants/:id/images/:imageId',
     authRequired,
     csrfRequired,
     adminRequired,
     productImagesController.update
 );
 router.delete(
-    '/api/v1/admin/products/:id/images/:imageId',
+    '/api/v1/admin/variants/:id/images/:imageId',
     authRequired,
     csrfRequired,
     adminRequired,

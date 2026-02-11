@@ -61,10 +61,10 @@ function contentTypeToExtension(contentType) {
     return '';
 }
 
-function buildImageKey(productId, contentType) {
-    const id = Number(productId);
+function buildImageKey(variantId, contentType) {
+    const id = Number(variantId);
     if (!Number.isFinite(id) || !Number.isInteger(id) || id <= 0) {
-        throw new Error('productId invalido');
+        throw new Error('variantId invalido');
     }
 
     const extension = contentTypeToExtension(contentType);
@@ -73,7 +73,7 @@ function buildImageKey(productId, contentType) {
     }
 
     const uuid = crypto.randomUUID();
-    return `products/${id}/${uuid}.${extension}`;
+    return `variants/${id}/${uuid}.${extension}`;
 }
 
 function buildPublicUrl(publicBaseUrl, imageKey) {
@@ -238,7 +238,7 @@ async function headPublicObject(publicUrl, { timeoutMs = 10_000 } = {}) {
     }
 }
 
-function presignProductImageUpload({ productId, contentType, byteSize }) {
+function presignVariantImageUpload({ variantId, contentType, byteSize }) {
     const validation = validateImageUploadRequest({ contentType, byteSize });
     if (!validation.ok) {
         const err = new Error(validation.error || 'Solicitud invalida');
@@ -246,7 +246,7 @@ function presignProductImageUpload({ productId, contentType, byteSize }) {
         throw err;
     }
 
-    const imageKey = buildImageKey(productId, contentType);
+    const imageKey = buildImageKey(variantId, contentType);
     const publicUrl = buildPublicUrl(r2.publicBaseUrl, imageKey);
 
     const presigned = presignPutObject({
@@ -276,7 +276,8 @@ module.exports = {
     buildPublicUrl,
     validateImageUploadRequest,
     presignPutObject,
-    presignProductImageUpload,
+    presignVariantImageUpload,
+    // Backward-compatible alias.
+    presignProductImageUpload: presignVariantImageUpload,
     headPublicObject,
 };
-

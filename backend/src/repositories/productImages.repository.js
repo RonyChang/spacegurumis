@@ -1,13 +1,13 @@
 const { Op } = require('sequelize');
-const { ProductImage } = require('../models');
+const { ProductVariantImage } = require('../models');
 
 function toPlain(row) {
     return row ? row.get({ plain: true }) : null;
 }
 
 async function createProductImage(data) {
-    const created = await ProductImage.create({
-        productId: data.productId,
+    const created = await ProductVariantImage.create({
+        productVariantId: data.productVariantId,
         imageKey: data.imageKey,
         publicUrl: data.publicUrl,
         contentType: data.contentType,
@@ -20,8 +20,8 @@ async function createProductImage(data) {
 }
 
 async function listProductImages(productId) {
-    const rows = await ProductImage.findAll({
-        where: { productId },
+    const rows = await ProductVariantImage.findAll({
+        where: { productVariantId: productId },
         order: [['sortOrder', 'ASC'], ['id', 'ASC']],
     });
 
@@ -29,8 +29,8 @@ async function listProductImages(productId) {
 }
 
 async function findProductImageById(productId, imageId) {
-    const row = await ProductImage.findOne({
-        where: { productId, id: imageId },
+    const row = await ProductVariantImage.findOne({
+        where: { productVariantId: productId, id: imageId },
     });
     return toPlain(row);
 }
@@ -44,8 +44,8 @@ async function updateProductImage(productId, imageId, patch) {
         update.sortOrder = patch.sortOrder;
     }
 
-    const [count] = await ProductImage.update(update, {
-        where: { productId, id: imageId },
+    const [count] = await ProductVariantImage.update(update, {
+        where: { productVariantId: productId, id: imageId },
     });
 
     if (!count) {
@@ -56,8 +56,8 @@ async function updateProductImage(productId, imageId, patch) {
 }
 
 async function deleteProductImage(productId, imageId) {
-    const count = await ProductImage.destroy({
-        where: { productId, id: imageId },
+    const count = await ProductVariantImage.destroy({
+        where: { productVariantId: productId, id: imageId },
     });
     return count > 0;
 }
@@ -68,17 +68,17 @@ async function fetchPrimaryImageUrls(productIds) {
         return new Map();
     }
 
-    const rows = await ProductImage.findAll({
-        where: { productId: { [Op.in]: ids } },
-        attributes: ['id', 'productId', 'publicUrl', 'sortOrder'],
-        order: [['productId', 'ASC'], ['sortOrder', 'ASC'], ['id', 'ASC']],
+    const rows = await ProductVariantImage.findAll({
+        where: { productVariantId: { [Op.in]: ids } },
+        attributes: ['id', 'productVariantId', 'publicUrl', 'sortOrder'],
+        order: [['productVariantId', 'ASC'], ['sortOrder', 'ASC'], ['id', 'ASC']],
     });
 
     const map = new Map();
     for (const row of rows) {
         const plain = row.get({ plain: true });
-        if (!map.has(plain.productId)) {
-            map.set(plain.productId, plain.publicUrl);
+        if (!map.has(plain.productVariantId)) {
+            map.set(plain.productVariantId, plain.publicUrl);
         }
     }
 
@@ -93,4 +93,3 @@ module.exports = {
     deleteProductImage,
     fetchPrimaryImageUrls,
 };
-

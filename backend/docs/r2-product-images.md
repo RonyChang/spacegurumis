@@ -14,7 +14,7 @@ This backend supports uploading product images directly from the browser to Clou
 - A Cloudflare R2 bucket (public read via custom domain recommended).
 - CORS configured on the bucket to allow browser `PUT`.
 - Backend deployed with the R2 env vars set.
-- Database updated with `schema.sql` (table `product_images`).
+- Database updated with `schema.sql` (table `product_variant_images`).
 - An admin session (cookie auth) to use the admin upload endpoints.
 
 ## Step 1: Create R2 Bucket
@@ -101,17 +101,17 @@ Example (adjust connection parameters):
 psql "$DATABASE_URL" -f spacegurumis/backend/schema.sql
 ```
 
-This creates the `product_images` table and indexes.
+This creates the `product_variant_images` table and indexes.
 
 ## Step 6: Upload API Endpoints (Admin)
 
 Routes (from `spacegurumis/backend/src/routes/admin.routes.js`):
 
-- `POST /api/v1/admin/products/:id/images/presign`
-- `POST /api/v1/admin/products/:id/images` (register)
-- `GET /api/v1/admin/products/:id/images`
-- `PATCH /api/v1/admin/products/:id/images/:imageId`
-- `DELETE /api/v1/admin/products/:id/images/:imageId`
+- `POST /api/v1/admin/variants/:id/images/presign`
+- `POST /api/v1/admin/variants/:id/images` (register)
+- `GET /api/v1/admin/variants/:id/images`
+- `PATCH /api/v1/admin/variants/:id/images/:imageId`
+- `DELETE /api/v1/admin/variants/:id/images/:imageId`
 
 Auth/CSRF:
 
@@ -136,7 +136,7 @@ Request body:
 Response `data` includes:
 
 - `uploadUrl` (presigned PUT URL to R2)
-- `imageKey` (example: `products/123/<uuid>.webp`)
+- `imageKey` (example: `variants/123/<uuid>.webp`)
 - `publicUrl` (derived from `R2_PUBLIC_BASE_URL`)
 - `expiresInSeconds`
 - `headers` (must be included in the PUT, at least `Content-Type`)
@@ -163,13 +163,13 @@ If CORS is wrong, the browser will fail before the request is sent.
 
 After the PUT succeeds, call register:
 
-`POST /api/v1/admin/products/:id/images`
+`POST /api/v1/admin/variants/:id/images`
 
 Request body:
 
 ```json
 {
-  "imageKey": "products/123/<uuid>.webp",
+  "imageKey": "variants/123/<uuid>.webp",
   "contentType": "image/webp",
   "byteSize": 123456,
   "altText": "Foto del peluche",
@@ -212,4 +212,3 @@ This should be visible in:
 - 403 from admin endpoints:
   - You are not logged in as admin, or CSRF is missing/invalid.
   - Ensure `CSRF_ALLOWED_ORIGINS` includes your frontend origin (no trailing slash).
-

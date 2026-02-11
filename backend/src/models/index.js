@@ -268,6 +268,46 @@ const ProductImage = sequelize.define('ProductImage', {
     tableName: 'product_images',
 });
 
+const ProductVariantImage = sequelize.define('ProductVariantImage', {
+    id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true,
+        autoIncrement: true,
+    },
+    productVariantId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    imageKey: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        unique: true,
+    },
+    publicUrl: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+    },
+    contentType: {
+        type: DataTypes.STRING(120),
+        allowNull: false,
+    },
+    byteSize: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    altText: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+    },
+    sortOrder: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+    },
+}, {
+    tableName: 'product_variant_images',
+});
+
 const ProductVariant = sequelize.define('ProductVariant', {
     id: {
         type: DataTypes.BIGINT,
@@ -573,6 +613,9 @@ ProductImage.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 Product.hasMany(ProductVariant, { foreignKey: 'productId', as: 'variants' });
 ProductVariant.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
+ProductVariant.hasMany(ProductVariantImage, { foreignKey: 'productVariantId', as: 'images' });
+ProductVariantImage.belongsTo(ProductVariant, { foreignKey: 'productVariantId', as: 'variant' });
+
 ProductVariant.hasOne(Inventory, { foreignKey: 'productVariantId', as: 'inventory' });
 Inventory.belongsTo(ProductVariant, { foreignKey: 'productVariantId', as: 'variant' });
 
@@ -603,6 +646,7 @@ module.exports = {
     Category,
     Product,
     ProductImage,
+    ProductVariantImage,
     ProductVariant,
     Inventory,
     Cart,

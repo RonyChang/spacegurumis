@@ -202,12 +202,12 @@ async function fetchActiveVariants(filters, pagination) {
         };
     });
 
-    const productIds = mapped.map((item) => item.productId).filter(Boolean);
-    const primaryImageUrls = await productImagesRepository.fetchPrimaryImageUrls(productIds);
+    const variantIds = mapped.map((item) => item.id).filter(Boolean);
+    const primaryImageUrls = await productImagesRepository.fetchPrimaryImageUrls(variantIds);
 
     return mapped.map((item) => ({
         ...item,
-        imageUrl: item.productId ? primaryImageUrls.get(item.productId) || null : null,
+        imageUrl: item.id ? primaryImageUrls.get(item.id) || null : null,
     }));
 }
 
@@ -258,6 +258,16 @@ async function fetchProductBySlug(slug) {
         return null;
     }
 
+    const firstVariant = await ProductVariant.findOne({
+        where: { productId: product.id },
+        attributes: ['id'],
+        order: [['id', 'ASC']],
+    });
+
+    const images = firstVariant
+        ? await productImagesRepository.listProductImages(firstVariant.id)
+        : [];
+
     return {
         id: product.id,
         name: product.name,
@@ -266,7 +276,7 @@ async function fetchProductBySlug(slug) {
         categoryId: product.category ? product.category.id : null,
         categoryName: product.category ? product.category.name : null,
         categorySlug: product.category ? product.category.slug : null,
-        images: (await productImagesRepository.listProductImages(product.id)).map((img) => ({
+        images: images.map((img) => ({
             url: img.publicUrl,
             altText: img.altText || null,
             sortOrder: Number.isFinite(Number(img.sortOrder)) ? Number(img.sortOrder) : null,
@@ -326,7 +336,7 @@ async function fetchVariantBySku(sku) {
         categorySlug: variant.product && variant.product.category
             ? variant.product.category.slug
             : null,
-        images: (await productImagesRepository.listProductImages(variant.product.id)).map((img) => ({
+        images: (await productImagesRepository.listProductImages(variant.id)).map((img) => ({
             url: img.publicUrl,
             altText: img.altText || null,
             sortOrder: Number.isFinite(Number(img.sortOrder)) ? Number(img.sortOrder) : null,

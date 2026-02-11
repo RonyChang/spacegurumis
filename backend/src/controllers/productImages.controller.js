@@ -28,9 +28,9 @@ function notFound(res, message) {
 
 async function presign(req, res, next) {
     try {
-        const productId = parseId(req.params.id);
-        if (!productId) {
-            return badRequest(res, 'productId invalido');
+        const variantId = parseId(req.params.id);
+        if (!variantId) {
+            return badRequest(res, 'variantId invalido');
         }
 
         const contentType = req.body && typeof req.body.contentType === 'string'
@@ -38,13 +38,13 @@ async function presign(req, res, next) {
             : '';
         const byteSize = req.body ? Number(req.body.byteSize) : NaN;
 
-        const result = await productImagesService.presignProductImage(productId, {
+        const result = await productImagesService.presignProductImage(variantId, {
             contentType,
             byteSize,
         });
 
         if (result.error === 'not_found') {
-            return notFound(res, 'Producto no encontrado');
+            return notFound(res, 'Variante no encontrada');
         }
         if (result.error === 'bad_request') {
             return badRequest(res, result.message || 'Solicitud invalida');
@@ -66,16 +66,16 @@ async function presign(req, res, next) {
 
 async function register(req, res, next) {
     try {
-        const productId = parseId(req.params.id);
-        if (!productId) {
-            return badRequest(res, 'productId invalido');
+        const variantId = parseId(req.params.id);
+        if (!variantId) {
+            return badRequest(res, 'variantId invalido');
         }
 
         const payload = req.body && typeof req.body === 'object' ? req.body : {};
-        const result = await productImagesService.registerProductImage(productId, payload);
+        const result = await productImagesService.registerProductImage(variantId, payload);
 
         if (result.error === 'not_found') {
-            return notFound(res, 'Producto no encontrado');
+            return notFound(res, 'Variante no encontrada');
         }
         if (result.error === 'bad_request') {
             return badRequest(res, result.message || 'Solicitud invalida');
@@ -97,15 +97,15 @@ async function register(req, res, next) {
 
 async function list(req, res, next) {
     try {
-        const productId = parseId(req.params.id);
-        if (!productId) {
-            return badRequest(res, 'productId invalido');
+        const variantId = parseId(req.params.id);
+        if (!variantId) {
+            return badRequest(res, 'variantId invalido');
         }
 
-        const result = await productImagesService.listProductImages(productId);
+        const result = await productImagesService.listProductImages(variantId);
 
         if (result.error === 'not_found') {
-            return notFound(res, 'Producto no encontrado');
+            return notFound(res, 'Variante no encontrada');
         }
         if (result.error === 'bad_request') {
             return badRequest(res, result.message || 'Solicitud invalida');
@@ -127,9 +127,9 @@ async function list(req, res, next) {
 
 async function update(req, res, next) {
     try {
-        const productId = parseId(req.params.id);
-        if (!productId) {
-            return badRequest(res, 'productId invalido');
+        const variantId = parseId(req.params.id);
+        if (!variantId) {
+            return badRequest(res, 'variantId invalido');
         }
 
         const imageId = parseId(req.params.imageId);
@@ -146,7 +146,7 @@ async function update(req, res, next) {
             patch.sortOrder = payload.sortOrder;
         }
 
-        const result = await productImagesService.updateProductImage(productId, imageId, patch);
+        const result = await productImagesService.updateProductImage(variantId, imageId, patch);
 
         if (result.error === 'not_found') {
             return notFound(res, 'Imagen no encontrada');
@@ -171,9 +171,9 @@ async function update(req, res, next) {
 
 async function remove(req, res, next) {
     try {
-        const productId = parseId(req.params.id);
-        if (!productId) {
-            return badRequest(res, 'productId invalido');
+        const variantId = parseId(req.params.id);
+        if (!variantId) {
+            return badRequest(res, 'variantId invalido');
         }
 
         const imageId = parseId(req.params.imageId);
@@ -181,7 +181,7 @@ async function remove(req, res, next) {
             return badRequest(res, 'imageId invalido');
         }
 
-        const result = await productImagesService.removeProductImage(productId, imageId);
+        const result = await productImagesService.removeProductImage(variantId, imageId);
 
         if (result.error === 'not_found') {
             return notFound(res, 'Imagen no encontrada');
@@ -211,4 +211,3 @@ module.exports = {
     update,
     remove,
 };
-

@@ -7,7 +7,7 @@ const productImagesService = require('../src/services/productImages.service');
 const r2 = require('../src/config/r2');
 const r2Service = require('../src/services/r2.service');
 const productImagesRepository = require('../src/repositories/productImages.repository');
-const { Product } = require('../src/models');
+const { ProductVariant } = require('../src/models');
 
 function makeRes() {
     return {
@@ -42,35 +42,35 @@ function routeMiddlewareNames(route) {
 }
 
 test('admin routes for product images include auth + admin and CSRF on mutating methods', () => {
-    const presign = findRoute(adminRoutes, '/api/v1/admin/products/:id/images/presign', 'post');
+    const presign = findRoute(adminRoutes, '/api/v1/admin/variants/:id/images/presign', 'post');
     assert.ok(presign, 'presign route exists');
     const presignNames = routeMiddlewareNames(presign);
     assert.ok(presignNames.includes('authRequired'));
     assert.ok(presignNames.includes('csrfRequired'));
     assert.ok(presignNames.includes('adminRequired'));
 
-    const create = findRoute(adminRoutes, '/api/v1/admin/products/:id/images', 'post');
+    const create = findRoute(adminRoutes, '/api/v1/admin/variants/:id/images', 'post');
     assert.ok(create, 'create(post) route exists');
     const createNames = routeMiddlewareNames(create);
     assert.ok(createNames.includes('authRequired'));
     assert.ok(createNames.includes('csrfRequired'));
     assert.ok(createNames.includes('adminRequired'));
 
-    const list = findRoute(adminRoutes, '/api/v1/admin/products/:id/images', 'get');
+    const list = findRoute(adminRoutes, '/api/v1/admin/variants/:id/images', 'get');
     assert.ok(list, 'list(get) route exists');
     const listNames = routeMiddlewareNames(list);
     assert.ok(listNames.includes('authRequired'));
     assert.ok(listNames.includes('adminRequired'));
     assert.equal(listNames.includes('csrfRequired'), false);
 
-    const update = findRoute(adminRoutes, '/api/v1/admin/products/:id/images/:imageId', 'patch');
+    const update = findRoute(adminRoutes, '/api/v1/admin/variants/:id/images/:imageId', 'patch');
     assert.ok(update, 'update route exists');
     const updateNames = routeMiddlewareNames(update);
     assert.ok(updateNames.includes('authRequired'));
     assert.ok(updateNames.includes('csrfRequired'));
     assert.ok(updateNames.includes('adminRequired'));
 
-    const remove = findRoute(adminRoutes, '/api/v1/admin/products/:id/images/:imageId', 'delete');
+    const remove = findRoute(adminRoutes, '/api/v1/admin/variants/:id/images/:imageId', 'delete');
     assert.ok(remove, 'remove route exists');
     const removeNames = routeMiddlewareNames(remove);
     assert.ok(removeNames.includes('authRequired'));
@@ -78,7 +78,7 @@ test('admin routes for product images include auth + admin and CSRF on mutating 
     assert.ok(removeNames.includes('adminRequired'));
 });
 
-test('productImages.controller.presign returns 400 when productId is invalid', async () => {
+test('productImages.controller.presign returns 400 when variantId is invalid', async () => {
     const res = makeRes();
     const next = () => {
         throw new Error('next should not be called');
@@ -91,7 +91,7 @@ test('productImages.controller.presign returns 400 when productId is invalid', a
     );
 
     assert.equal(res.statusCode, 400);
-    assert.equal(res.payload && res.payload.message, 'productId invalido');
+    assert.equal(res.payload && res.payload.message, 'variantId invalido');
 });
 
 test('productImages.controller.presign maps service not_found to 404', async () => {
@@ -111,14 +111,14 @@ test('productImages.controller.presign maps service not_found to 404', async () 
         );
 
         assert.equal(res.statusCode, 404);
-        assert.equal(res.payload && res.payload.message, 'Producto no encontrado');
+        assert.equal(res.payload && res.payload.message, 'Variante no encontrada');
     } finally {
         productImagesService.presignProductImage = originalPresign;
     }
 });
 
 test('registerProductImage derives publicUrl (does not accept arbitrary URL)', async () => {
-    const originalFindByPk = Product.findByPk;
+    const originalFindByPk = ProductVariant.findByPk;
     const originalHead = r2Service.headPublicObject;
     const originalCreate = productImagesRepository.createProductImage;
 
@@ -127,7 +127,7 @@ test('registerProductImage derives publicUrl (does not accept arbitrary URL)', a
     const captured = { created: null };
 
     try {
-        Product.findByPk = async (id) => ({
+        ProductVariant.findByPk = async (id) => ({
             get() {
                 return { id };
             },
@@ -148,7 +148,7 @@ test('registerProductImage derives publicUrl (does not accept arbitrary URL)', a
         };
 
         const res = await productImagesService.registerProductImage(123, {
-            imageKey: 'products/123/abc.webp',
+            imageKey: 'variants/123/abc.webp',
             contentType: 'image/webp',
             byteSize: 123,
             publicUrl: 'https://evil.example/hijack',
@@ -158,11 +158,12 @@ test('registerProductImage derives publicUrl (does not accept arbitrary URL)', a
 
         assert.equal(res.error, undefined);
         assert.ok(res.data);
-        assert.equal(res.data.publicUrl, 'https://assets.example.com/products/123/abc.webp');
+        assert.equal(res.data.publicUrl, 'https://assets.example.com/variants/123/abc.webp');
         assert.ok(captured.created);
-        assert.equal(captured.created.publicUrl, 'https://assets.example.com/products/123/abc.webp');
+        assert.equal(captured.created.publicUrl, 'https://assets.example.com/variants/123/abc.webp');
+        assert.equal(captured.created.productVariantId, 123);
     } finally {
-        Product.findByPk = originalFindByPk;
+        ProductVariant.findByPk = originalFindByPk;
         r2Service.headPublicObject = originalHead;
         productImagesRepository.createProductImage = originalCreate;
         r2.publicBaseUrl = originalPublicBaseUrl;
@@ -170,13 +171,13 @@ test('registerProductImage derives publicUrl (does not accept arbitrary URL)', a
 });
 
 test('registerProductImage rejects unsupported content type', async () => {
-    const originalFindByPk = Product.findByPk;
+    const originalFindByPk = ProductVariant.findByPk;
     const originalHead = r2Service.headPublicObject;
     const originalCreate = productImagesRepository.createProductImage;
     const originalPublicBaseUrl = r2.publicBaseUrl;
 
     try {
-        Product.findByPk = async (id) => ({
+        ProductVariant.findByPk = async (id) => ({
             get() {
                 return { id };
             },
@@ -186,14 +187,14 @@ test('registerProductImage rejects unsupported content type', async () => {
         productImagesRepository.createProductImage = async (data) => data;
 
         const res = await productImagesService.registerProductImage(123, {
-            imageKey: 'products/123/abc.pdf',
+            imageKey: 'variants/123/abc.pdf',
             contentType: 'application/pdf',
             byteSize: 10,
         });
 
         assert.equal(res.error, 'bad_request');
     } finally {
-        Product.findByPk = originalFindByPk;
+        ProductVariant.findByPk = originalFindByPk;
         r2Service.headPublicObject = originalHead;
         productImagesRepository.createProductImage = originalCreate;
         r2.publicBaseUrl = originalPublicBaseUrl;
@@ -201,11 +202,11 @@ test('registerProductImage rejects unsupported content type', async () => {
 });
 
 test('registerProductImage rejects invalid byteSize', async () => {
-    const originalFindByPk = Product.findByPk;
+    const originalFindByPk = ProductVariant.findByPk;
     const originalPublicBaseUrl = r2.publicBaseUrl;
 
     try {
-        Product.findByPk = async (id) => ({
+        ProductVariant.findByPk = async (id) => ({
             get() {
                 return { id };
             },
@@ -213,14 +214,14 @@ test('registerProductImage rejects invalid byteSize', async () => {
         r2.publicBaseUrl = 'https://assets.example.com';
 
         const res = await productImagesService.registerProductImage(123, {
-            imageKey: 'products/123/abc.webp',
+            imageKey: 'variants/123/abc.webp',
             contentType: 'image/webp',
             byteSize: 0,
         });
 
         assert.equal(res.error, 'bad_request');
     } finally {
-        Product.findByPk = originalFindByPk;
+        ProductVariant.findByPk = originalFindByPk;
         r2.publicBaseUrl = originalPublicBaseUrl;
     }
 });

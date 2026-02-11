@@ -122,9 +122,9 @@
 - `is_active`
 - `created_at`, `updated_at`
 
-### product_images
+### product_variant_images
 - `id` (PK)
-- `product_id` (FK -> products.id)
+- `product_variant_id` (FK -> product_variants.id)
 - `image_key` (unique)
 - `public_url`
 - `content_type`

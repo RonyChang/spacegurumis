@@ -3,9 +3,9 @@ const assert = require('node:assert/strict');
 
 const r2Service = require('../src/services/r2.service');
 
-test('buildImageKey uses products/<productId>/... and extension derived from contentType', () => {
+test('buildImageKey uses variants/<variantId>/... and extension derived from contentType', () => {
     const key = r2Service.buildImageKey(123, 'image/png');
-    assert.match(key, /^products\/123\/[0-9a-f-]{36}\.png$/);
+    assert.match(key, /^variants\/123\/[0-9a-f-]{36}\.png$/);
 });
 
 test('clampExpiresSeconds bounds to [60, 300] seconds', () => {
@@ -18,7 +18,7 @@ test('presignPutObject clamps expires and sets X-Amz-Expires accordingly', () =>
     const presignedTooSmall = r2Service.presignPutObject({
         endpoint: 'https://example.r2.cloudflarestorage.com',
         bucket: 'bucket',
-        key: 'products/123/abc.png',
+        key: 'variants/123/abc.png',
         accessKeyId: 'AKIDEXAMPLE',
         secretAccessKey: 'secret',
         region: 'auto',
@@ -33,7 +33,7 @@ test('presignPutObject clamps expires and sets X-Amz-Expires accordingly', () =>
     const presignedTooLarge = r2Service.presignPutObject({
         endpoint: 'https://example.r2.cloudflarestorage.com',
         bucket: 'bucket',
-        key: 'products/123/abc.png',
+        key: 'variants/123/abc.png',
         accessKeyId: 'AKIDEXAMPLE',
         secretAccessKey: 'secret',
         region: 'auto',
@@ -45,4 +45,3 @@ test('presignPutObject clamps expires and sets X-Amz-Expires accordingly', () =>
     assert.equal(presignedTooLarge.expiresInSeconds, 300);
     assert.equal(new URL(presignedTooLarge.uploadUrl).searchParams.get('X-Amz-Expires'), '300');
 });
-
