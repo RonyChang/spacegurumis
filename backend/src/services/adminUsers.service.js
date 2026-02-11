@@ -27,8 +27,8 @@ function buildUserResponse(user) {
         role: user.role,
         isActive: Boolean(user.isActive),
         emailVerifiedAt: user.emailVerifiedAt || null,
-        createdAt: user.createdAt || null,
-        updatedAt: user.updatedAt || null,
+        createdAt: user.createdAt || user.created_at || null,
+        updatedAt: user.updatedAt || user.updated_at || null,
     };
 }
 
@@ -107,4 +107,3 @@ module.exports = {
     listAdminUsers,
     createOrPromoteAdmin,
 };
-

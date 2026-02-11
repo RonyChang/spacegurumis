@@ -1,4 +1,4 @@
-const { User } = require('../models');
+const { User, sequelize } = require('../models');
 
 function toPlain(row) {
     return row ? row.get({ plain: true }) : null;
@@ -15,8 +15,8 @@ async function listAdminUsers() {
             'role',
             'isActive',
             'emailVerifiedAt',
-            'createdAt',
-            'updatedAt',
+            [sequelize.col('created_at'), 'createdAt'],
+            [sequelize.col('updated_at'), 'updatedAt'],
         ],
         order: [['id', 'ASC']],
     });
@@ -59,4 +59,3 @@ module.exports = {
     createUser,
     updateUserRole,
 };
-
