@@ -7,7 +7,9 @@
         "dev": "astro dev --host --port 4321",
         "build": "astro build",
         "preview": "astro preview --host --port 4321",
-        "start": "node ./dist/server/entry.mjs"
+        "start": "node ./dist/server/entry.mjs",
+        "test": "vitest run",
+        "test:watch": "vitest"
     },
     "dependencies": {
         "@astrojs/node": "^9.5.2",
@@ -15,5 +17,11 @@
         "astro": "^5.17.1",
         "react": "^18.2.0",
         "react-dom": "^18.2.0"
+    },
+    "devDependencies": {
+        "@testing-library/jest-dom": "^6.6.3",
+        "@testing-library/react": "^16.1.0",
+        "jsdom": "^25.0.1",
+        "vitest": "^4.0.18"
     }
 }
