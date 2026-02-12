@@ -8,6 +8,7 @@ const listCatalogVariantsMock = vi.fn();
 const listSiteAssetsBySlotMock = vi.fn();
 const addCartItemMock = vi.fn();
 const writeGuestCartMock = vi.fn();
+const buildWhatsappUrlMock = vi.fn();
 
 vi.mock('../../lib/api/catalog', () => ({
     listCatalogVariants: (...args: unknown[]) => listCatalogVariantsMock(...args),
@@ -19,6 +20,10 @@ vi.mock('../../lib/api/siteAssets', () => ({
 
 vi.mock('../../lib/api/cart', () => ({
     addCartItem: (...args: unknown[]) => addCartItemMock(...args),
+}));
+
+vi.mock('../../lib/whatsapp', () => ({
+    buildWhatsappUrl: (...args: unknown[]) => buildWhatsappUrlMock(...args),
 }));
 
 vi.mock('../../lib/cart/guestCart', () => ({
@@ -42,6 +47,9 @@ function makeVariant(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
     vi.clearAllMocks();
+    buildWhatsappUrlMock.mockImplementation(
+        (message: string) => `https://wa.me/51999999999?text=${encodeURIComponent(message)}`
+    );
     addCartItemMock.mockResolvedValue({});
     listCatalogVariantsMock.mockResolvedValue({
         data: [makeVariant()],
@@ -85,6 +93,32 @@ test('renders decorative assets from site-assets API', async () => {
     expect(banner).toHaveAttribute('src', 'https://assets.spacegurumis.lat/site/home-banner.webp');
 });
 
+test('renders promotional whatsapp CTA with the new copy', async () => {
+    render(<HomePage />);
+
+    expect(
+        await screen.findByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)')
+    ).toBeInTheDocument();
+
+    const whatsappLink = screen.getByRole('link', { name: 'Contactar por WhatsApp' });
+    expect(whatsappLink).toHaveAttribute(
+        'href',
+        'https://wa.me/51999999999?text=Hola%2C%20quiero%20cotizar%20un%20pedido%20especial%20para%20amigurumis.'
+    );
+    expect(buildWhatsappUrlMock).toHaveBeenCalledWith('Hola, quiero cotizar un pedido especial para amigurumis.');
+});
+
+test('shows graceful fallback when whatsapp url is unavailable', async () => {
+    buildWhatsappUrlMock.mockReturnValue('');
+
+    render(<HomePage />);
+
+    await screen.findByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)');
+    expect(screen.queryByRole('link', { name: 'Contactar por WhatsApp' })).toBeNull();
+    expect(screen.getByText('WhatsApp no disponible')).toBeInTheDocument();
+    expect(screen.getByText('Por ahora no podemos abrir WhatsApp desde este dispositivo.')).toBeInTheDocument();
+});
+
 test('falls back to placeholder image when imageUrl is null', async () => {
     listCatalogVariantsMock.mockResolvedValueOnce({
         data: [makeVariant({ imageUrl: null })],
@@ -115,6 +149,6 @@ test('uses decorative fallback assets when site-assets API fails', async () => {
     const hero = await screen.findByRole('img', { name: 'Coleccion destacada de amigurumis' });
     expect(hero).toHaveAttribute('src', '/site-fallback-hero.svg');
 
-    const banner = await screen.findByRole('img', { name: 'Nuevos modelos de amigurumis' });
+    const banner = await screen.findByRole('img', { name: 'Banner de pedidos especiales de amigurumis' });
     expect(banner).toHaveAttribute('src', '/site-fallback-banner.svg');
 });

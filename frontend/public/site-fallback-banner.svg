@@ -1,18 +1,26 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
   <title id="title">Banner fallback Spacegurumis</title>
-  <desc id="desc">Banner decorativo por defecto para Spacegurumis.</desc>
+  <desc id="desc">Banner decorativo por defecto para pedidos especiales de Spacegurumis.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#1f2937"/>
+      <stop offset="0%" stop-color="#0f766e"/>
       <stop offset="100%" stop-color="#111827"/>
     </linearGradient>
+    <radialGradient id="glowA" cx="75%" cy="20%" r="45%">
+      <stop offset="0%" stop-color="#5eead4" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#5eead4" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="20%" cy="80%" r="40%">
+      <stop offset="0%" stop-color="#99f6e4" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#99f6e4" stop-opacity="0"/>
+    </radialGradient>
   </defs>
   <rect width="800" height="600" fill="url(#bg)"/>
-  <rect x="60" y="80" width="680" height="440" rx="36" fill="#ffffff12"/>
-  <text x="110" y="290" fill="#f9fafb" font-family="sans-serif" font-size="54" font-weight="700">
-    Nuevo drop
-  </text>
-  <text x="110" y="350" fill="#d1d5db" font-family="sans-serif" font-size="30">
-    Modelos limitados cada semana
-  </text>
+  <rect width="800" height="600" fill="url(#glowA)"/>
+  <rect width="800" height="600" fill="url(#glowB)"/>
+  <rect x="60" y="80" width="680" height="440" rx="36" fill="#ffffff14"/>
+  <rect x="120" y="180" width="300" height="24" rx="12" fill="#ffffff70"/>
+  <rect x="120" y="220" width="560" height="40" rx="20" fill="#ffffff30"/>
+  <rect x="120" y="280" width="540" height="40" rx="20" fill="#ffffff30"/>
+  <rect x="120" y="360" width="240" height="62" rx="31" fill="#22c55e"/>
 </svg>

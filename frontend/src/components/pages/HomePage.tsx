@@ -5,6 +5,7 @@ import { listCatalogVariants, type CatalogVariant } from '../../lib/api/catalog'
 import { listSiteAssetsBySlot, type SiteAsset } from '../../lib/api/siteAssets';
 import { formatPrice, formatVariantTitle } from '../../lib/format';
 import { readGuestCart, writeGuestCart } from '../../lib/cart/guestCart';
+import { buildWhatsappUrl } from '../../lib/whatsapp';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 
@@ -25,12 +26,14 @@ const BANNER_FALLBACK_ASSETS: SiteAsset[] = [
     {
         id: 0,
         slot: BANNER_SLOT,
-        title: 'Nuevos modelos cada semana',
-        altText: 'Nuevos modelos de amigurumis',
+        title: 'Haz tu pedido especial',
+        altText: 'Banner de pedidos especiales de amigurumis',
         publicUrl: '/site-fallback-banner.svg',
         sortOrder: 0,
     },
 ];
+const HOME_PROMO_COPY = 'Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)';
+const HOME_PROMO_WHATSAPP_MESSAGE = 'Hola, quiero cotizar un pedido especial para amigurumis.';
 
 function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
     const img = event.currentTarget;
@@ -155,7 +158,9 @@ export default function HomePage() {
     }, []);
 
     const heroAsset = heroAssets[0] || HERO_FALLBACK_ASSETS[0];
-    const visibleBanners = bannerAssets.slice(0, 2);
+    const promoBannerAsset = bannerAssets[0] || BANNER_FALLBACK_ASSETS[0];
+    const secondaryBannerAsset = bannerAssets[1] || null;
+    const promoWhatsappUrl = buildWhatsappUrl(HOME_PROMO_WHATSAPP_MESSAGE);
 
     return (
         <section className="surface page">
@@ -174,18 +179,51 @@ export default function HomePage() {
                     </div>
                 </article>
                 <aside className="banner-slot">
-                    {visibleBanners.map((asset, index) => (
-                        <article className="banner-slot__card" key={`${asset.id}-${index}`}>
+                    <article className="promo-cta">
+                        <img
+                            src={promoBannerAsset.publicUrl}
+                            alt={promoBannerAsset.altText || 'Banner promocional de pedidos especiales'}
+                            loading="lazy"
+                            decoding="async"
+                            onError={imgErrorToPlaceholder}
+                        />
+                        <div className="promo-cta__overlay">
+                            <p className="promo-cta__eyebrow">Pedidos especiales</p>
+                            <h3>{HOME_PROMO_COPY}</h3>
+                            {promoWhatsappUrl ? (
+                                <a
+                                    className="button button--whatsapp promo-cta__button"
+                                    href={promoWhatsappUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                >
+                                    Contactar por WhatsApp
+                                </a>
+                            ) : (
+                                <div className="promo-cta__fallback" role="status" aria-live="polite">
+                                    <span
+                                        className="button button--ghost promo-cta__button promo-cta__button--disabled"
+                                        aria-disabled="true"
+                                    >
+                                        WhatsApp no disponible
+                                    </span>
+                                    <p>Por ahora no podemos abrir WhatsApp desde este dispositivo.</p>
+                                </div>
+                            )}
+                        </div>
+                    </article>
+                    {secondaryBannerAsset ? (
+                        <article className="banner-slot__card">
                             <img
-                                src={asset.publicUrl}
-                                alt={asset.altText || 'Banner decorativo'}
+                                src={secondaryBannerAsset.publicUrl}
+                                alt={secondaryBannerAsset.altText || 'Banner decorativo'}
                                 loading="lazy"
                                 decoding="async"
                                 onError={imgErrorToPlaceholder}
                             />
-                            {asset.title ? <p>{asset.title}</p> : null}
+                            {secondaryBannerAsset.title ? <p>{secondaryBannerAsset.title}</p> : null}
                         </article>
-                    ))}
+                    ) : null}
                 </aside>
             </section>
 
