@@ -1,4 +1,4 @@
-const { ProductVariant } = require('../models');
+const { Product, ProductVariant } = require('../models');
 const r2 = require('../config/r2');
 const r2Service = require('./r2.service');
 const productImagesRepository = require('../repositories/productImages.repository');
@@ -23,20 +23,63 @@ function parseNonNegativeInt(value) {
     return parsed;
 }
 
-async function ensureVariantExists(variantId) {
-    const variant = await ProductVariant.findByPk(variantId, { attributes: ['id'] });
-    return variant ? variant.get({ plain: true }) : null;
+function parseOptionalPositiveInt(value) {
+    if (value === undefined || value === null || value === '') {
+        return { provided: false, value: null };
+    }
+    const parsed = parsePositiveInt(value);
+    if (!parsed) {
+        return { provided: true, value: null, error: true };
+    }
+    return { provided: true, value: parsed, error: false };
 }
 
-async function presignProductImage(productId, { contentType, byteSize }) {
-    const id = parsePositiveInt(productId);
+async function ensureVariantScope(variantId, context = {}) {
+    const variant = await ProductVariant.findByPk(variantId, {
+        attributes: ['id', 'productId'],
+        include: [
+            {
+                model: Product,
+                as: 'product',
+                attributes: ['id', 'categoryId'],
+                required: true,
+            },
+        ],
+    });
+
+    if (!variant) {
+        return { error: 'not_found', message: 'Variante no encontrada' };
+    }
+
+    const plain = variant.get({ plain: true });
+    const productId = parseOptionalPositiveInt(context.productId);
+    if (productId.error) {
+        return { error: 'bad_request', message: 'productId invalido' };
+    }
+    if (productId.provided && Number(plain.productId || 0) !== Number(productId.value)) {
+        return { error: 'bad_request', message: 'La variante no pertenece al producto indicado' };
+    }
+
+    const categoryId = parseOptionalPositiveInt(context.categoryId);
+    if (categoryId.error) {
+        return { error: 'bad_request', message: 'categoryId invalido' };
+    }
+    if (categoryId.provided && Number((plain.product && plain.product.categoryId) || 0) !== Number(categoryId.value)) {
+        return { error: 'bad_request', message: 'La variante no pertenece a la categoria indicada' };
+    }
+
+    return { data: plain };
+}
+
+async function presignProductImage(variantId, { contentType, byteSize }, context = {}) {
+    const id = parsePositiveInt(variantId);
     if (!id) {
         return { error: 'bad_request', message: 'variantId invalido' };
     }
 
-    const variant = await ensureVariantExists(id);
-    if (!variant) {
-        return { error: 'not_found' };
+    const ensured = await ensureVariantScope(id, context);
+    if (ensured.error) {
+        return ensured;
     }
 
     try {
@@ -68,15 +111,15 @@ function validateImageKeyForVariant(variantId, imageKey) {
     return { ok: true, key };
 }
 
-async function registerProductImage(productId, payload) {
-    const id = parsePositiveInt(productId);
+async function registerProductImage(variantId, payload, context = {}) {
+    const id = parsePositiveInt(variantId);
     if (!id) {
         return { error: 'bad_request', message: 'variantId invalido' };
     }
 
-    const variant = await ensureVariantExists(id);
-    if (!variant) {
-        return { error: 'not_found' };
+    const ensured = await ensureVariantScope(id, context);
+    if (ensured.error) {
+        return ensured;
     }
 
     if (!r2.publicBaseUrl) {
@@ -145,23 +188,23 @@ async function registerProductImage(productId, payload) {
     }
 }
 
-async function listProductImages(productId) {
-    const id = parsePositiveInt(productId);
+async function listProductImages(variantId, context = {}) {
+    const id = parsePositiveInt(variantId);
     if (!id) {
         return { error: 'bad_request', message: 'variantId invalido' };
     }
 
-    const variant = await ensureVariantExists(id);
-    if (!variant) {
-        return { error: 'not_found' };
+    const ensured = await ensureVariantScope(id, context);
+    if (ensured.error) {
+        return ensured;
     }
 
     const items = await productImagesRepository.listProductImages(id);
     return { data: items };
 }
 
-async function updateProductImage(productId, imageId, patch) {
-    const pid = parsePositiveInt(productId);
+async function updateProductImage(variantId, imageId, patch, context = {}) {
+    const pid = parsePositiveInt(variantId);
     if (!pid) {
         return { error: 'bad_request', message: 'variantId invalido' };
     }
@@ -171,9 +214,9 @@ async function updateProductImage(productId, imageId, patch) {
         return { error: 'bad_request', message: 'imageId invalido' };
     }
 
-    const variant = await ensureVariantExists(pid);
-    if (!variant) {
-        return { error: 'not_found' };
+    const ensured = await ensureVariantScope(pid, context);
+    if (ensured.error) {
+        return ensured;
     }
 
     const update = {};
@@ -196,8 +239,8 @@ async function updateProductImage(productId, imageId, patch) {
     return { data: updated };
 }
 
-async function removeProductImage(productId, imageId) {
-    const pid = parsePositiveInt(productId);
+async function removeProductImage(variantId, imageId, context = {}) {
+    const pid = parsePositiveInt(variantId);
     if (!pid) {
         return { error: 'bad_request', message: 'variantId invalido' };
     }
@@ -207,9 +250,9 @@ async function removeProductImage(productId, imageId) {
         return { error: 'bad_request', message: 'imageId invalido' };
     }
 
-    const variant = await ensureVariantExists(pid);
-    if (!variant) {
-        return { error: 'not_found' };
+    const ensured = await ensureVariantScope(pid, context);
+    if (ensured.error) {
+        return ensured;
     }
 
     const deleted = await productImagesRepository.deleteProductImage(pid, iid);

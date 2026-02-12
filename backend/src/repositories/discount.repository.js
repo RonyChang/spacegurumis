@@ -55,10 +55,39 @@ async function createDiscountCode(payload, transaction) {
     return toPlain(row);
 }
 
+async function findDiscountById(id, transaction) {
+    const row = await DiscountCode.findByPk(id, { transaction });
+    return toPlain(row);
+}
+
+async function updateDiscountCode(id, patch, transaction) {
+    const [count] = await DiscountCode.update(patch, {
+        where: { id },
+        transaction,
+    });
+
+    if (!count) {
+        return null;
+    }
+
+    return findDiscountById(id, transaction);
+}
+
+async function deleteDiscountCode(id, transaction) {
+    const count = await DiscountCode.destroy({
+        where: { id },
+        transaction,
+    });
+    return count > 0;
+}
+
 module.exports = {
     findDiscountByCode,
+    findDiscountById,
     incrementDiscountUsage,
     createRedemption,
     listDiscountCodes,
     createDiscountCode,
+    updateDiscountCode,
+    deleteDiscountCode,
 };

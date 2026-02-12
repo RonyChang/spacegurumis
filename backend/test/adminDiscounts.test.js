@@ -138,6 +138,20 @@ test('admin discount routes include auth/admin and csrf on POST', () => {
     assert.ok(createNames.includes('authRequired'));
     assert.ok(createNames.includes('adminRequired'));
     assert.ok(createNames.includes('csrfRequired'));
+
+    const updateRoute = findRoute(adminRoutes, '/api/v1/admin/discounts/:id', 'patch');
+    assert.ok(updateRoute, 'update discount route exists');
+    const updateNames = routeMiddlewareNames(updateRoute);
+    assert.ok(updateNames.includes('authRequired'));
+    assert.ok(updateNames.includes('adminRequired'));
+    assert.ok(updateNames.includes('csrfRequired'));
+
+    const deleteRoute = findRoute(adminRoutes, '/api/v1/admin/discounts/:id', 'delete');
+    assert.ok(deleteRoute, 'delete discount route exists');
+    const deleteNames = routeMiddlewareNames(deleteRoute);
+    assert.ok(deleteNames.includes('authRequired'));
+    assert.ok(deleteNames.includes('adminRequired'));
+    assert.ok(deleteNames.includes('csrfRequired'));
 });
 
 test('admin discount POST returns 403 for authenticated non-admin (integration)', async () => {
@@ -159,6 +173,50 @@ test('admin discount POST returns 403 for authenticated non-admin (integration)'
         assert.equal(status, 403);
         assert.equal(payload && payload.message, 'Acceso denegado');
         assert.equal(payload && payload.errors && payload.errors[0] && payload.errors[0].message, 'Acceso denegado');
+    } finally {
+        restore();
+    }
+});
+
+test('admin discount PATCH returns 403 for authenticated non-admin (integration)', async () => {
+    const { middlewares, security, restore } = buildDiscountGuardHarness();
+
+    try {
+        const csrfValue = 'csrf-token-123';
+        const { status } = runMiddlewareChain(middlewares, {
+            method: 'PATCH',
+            headers: {
+                origin: 'http://localhost:4321',
+                'x-csrf-token': csrfValue,
+            },
+            cookies: {
+                [security.cookies.accessCookieName]: 'customer-token',
+                [security.cookies.csrfCookieName]: csrfValue,
+            },
+        });
+
+        assert.equal(status, 403);
+    } finally {
+        restore();
+    }
+});
+
+test('admin discount DELETE returns 403 when CSRF token is missing (integration)', async () => {
+    const { middlewares, security, restore } = buildDiscountGuardHarness();
+
+    try {
+        const { status, payload } = runMiddlewareChain(middlewares, {
+            method: 'DELETE',
+            headers: {
+                origin: 'http://localhost:4321',
+            },
+            cookies: {
+                [security.cookies.accessCookieName]: 'admin-token',
+            },
+        });
+
+        assert.equal(status, 403);
+        assert.equal(payload && payload.errors && payload.errors[0] && payload.errors[0].message, 'CSRF: token requerido');
     } finally {
         restore();
     }
@@ -267,5 +325,70 @@ test('adminDiscounts.service.listDiscounts maps rows for admin UI', async () => 
         assert.equal(result.data[0].usedCount, 5);
     } finally {
         discountRepository.listDiscountCodes = originalListDiscountCodes;
+    }
+});
+
+test('adminDiscounts.service.updateDiscount validates and updates existing discount', async () => {
+    const originalFindById = discountRepository.findDiscountById;
+    const originalUpdate = discountRepository.updateDiscountCode;
+
+    try {
+        discountRepository.findDiscountById = async () => ({
+            id: 10,
+            code: 'WELCOME10',
+            percentage: 10,
+            minSubtotalCents: null,
+            maxUses: null,
+            usedCount: 0,
+            isActive: true,
+            startsAt: null,
+            expiresAt: null,
+        });
+        discountRepository.updateDiscountCode = async (id, patch) => ({
+            id,
+            code: patch.code || 'WELCOME10',
+            percentage: patch.percentage || 10,
+            minSubtotalCents: patch.minSubtotalCents || null,
+            maxUses: patch.maxUses || null,
+            usedCount: 0,
+            isActive: Object.prototype.hasOwnProperty.call(patch, 'isActive') ? patch.isActive : true,
+            startsAt: patch.startsAt || null,
+            expiresAt: patch.expiresAt || null,
+        });
+
+        const result = await adminDiscountsService.updateDiscount(10, {
+            code: 'promo20',
+            percentage: 20,
+            minSubtotal: 35.5,
+            maxUses: 100,
+            isActive: false,
+        });
+
+        assert.equal(result.error, undefined);
+        assert.equal(result.data.code, 'PROMO20');
+        assert.equal(result.data.percentage, 20);
+        assert.equal(result.data.minSubtotal, 35.5);
+        assert.equal(result.data.maxUses, 100);
+        assert.equal(result.data.isActive, false);
+    } finally {
+        discountRepository.findDiscountById = originalFindById;
+        discountRepository.updateDiscountCode = originalUpdate;
+    }
+});
+
+test('adminDiscounts.service.removeDiscount deletes by id', async () => {
+    const originalFindById = discountRepository.findDiscountById;
+    const originalDelete = discountRepository.deleteDiscountCode;
+
+    try {
+        discountRepository.findDiscountById = async () => ({ id: 55, code: 'PROMO55' });
+        discountRepository.deleteDiscountCode = async () => true;
+
+        const result = await adminDiscountsService.removeDiscount(55);
+        assert.equal(result.error, undefined);
+        assert.deepEqual(result.data, { deleted: true, id: 55 });
+    } finally {
+        discountRepository.findDiscountById = originalFindById;
+        discountRepository.deleteDiscountCode = originalDelete;
     }
 });

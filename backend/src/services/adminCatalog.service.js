@@ -170,6 +170,69 @@ async function createCategory(payload) {
     }
 }
 
+async function updateCategory(categoryId, payload) {
+    const parsedId = parsePositiveInt(categoryId);
+    if (!parsedId) {
+        return { error: 'bad_request', message: 'categoryId invalido' };
+    }
+
+    const update = {};
+    const name = parseNullableString(payload && payload.name);
+    const slug = parseNullableString(payload && payload.slug);
+    const description = parseNullableString(payload && payload.description);
+    const isActive = payload && Object.prototype.hasOwnProperty.call(payload, 'isActive')
+        ? parseBoolean(payload.isActive, false)
+        : null;
+
+    if (name.provided) {
+        if (!name.value) {
+            return { error: 'bad_request', message: 'name invalido' };
+        }
+        update.name = name.value;
+    }
+
+    if (slug.provided) {
+        if (!slug.value) {
+            return { error: 'bad_request', message: 'slug invalido' };
+        }
+        update.slug = slug.value.toLowerCase();
+    }
+
+    if (description.provided) {
+        update.description = description.value;
+    }
+
+    if (isActive !== null) {
+        update.isActive = isActive;
+    }
+
+    if (!Object.keys(update).length) {
+        return { error: 'bad_request', message: 'Sin cambios para actualizar' };
+    }
+
+    try {
+        const updated = await adminCatalogRepository.updateCategory(parsedId, update);
+        if (!updated) {
+            return { error: 'not_found', message: 'Categoria no encontrada' };
+        }
+
+        return {
+            data: {
+                id: updated.id,
+                name: updated.name,
+                slug: updated.slug,
+                description: updated.description || null,
+                isActive: Boolean(updated.isActive),
+            },
+        };
+    } catch (error) {
+        if (isUniqueConstraintError(error)) {
+            return { error: 'conflict', message: uniqueMessage(error) };
+        }
+        throw error;
+    }
+}
+
 async function listProducts() {
     const rows = await adminCatalogRepository.listProducts();
     return {
@@ -615,15 +678,25 @@ async function deleteCategory(categoryId) {
     };
 }
 
-async function deleteProduct(productId) {
+async function deleteProduct(productId, context = {}) {
     const parsedId = parsePositiveInt(productId);
     if (!parsedId) {
         return { error: 'bad_request', message: 'productId invalido' };
     }
 
+    const contextCategoryId = context && Object.prototype.hasOwnProperty.call(context, 'categoryId')
+        ? parsePositiveInt(context.categoryId)
+        : null;
+    if (context && Object.prototype.hasOwnProperty.call(context, 'categoryId') && !contextCategoryId) {
+        return { error: 'bad_request', message: 'categoryId invalido' };
+    }
+
     const product = await adminCatalogRepository.findProductById(parsedId);
     if (!product) {
         return { error: 'not_found', message: 'Producto no encontrado' };
+    }
+    if (contextCategoryId && Number(product.categoryId || 0) !== Number(contextCategoryId)) {
+        return { error: 'bad_request', message: 'El producto no pertenece a la categoria indicada' };
     }
 
     const result = await sequelize.transaction((transaction) =>
@@ -648,15 +721,40 @@ async function deleteProduct(productId) {
     };
 }
 
-async function deleteVariant(variantId) {
+async function deleteVariant(variantId, context = {}) {
     const parsedId = parsePositiveInt(variantId);
     if (!parsedId) {
         return { error: 'bad_request', message: 'variantId invalido' };
     }
 
+    const contextProductId = context && Object.prototype.hasOwnProperty.call(context, 'productId')
+        ? parsePositiveInt(context.productId)
+        : null;
+    if (context && Object.prototype.hasOwnProperty.call(context, 'productId') && !contextProductId) {
+        return { error: 'bad_request', message: 'productId invalido' };
+    }
+    const contextCategoryId = context && Object.prototype.hasOwnProperty.call(context, 'categoryId')
+        ? parsePositiveInt(context.categoryId)
+        : null;
+    if (context && Object.prototype.hasOwnProperty.call(context, 'categoryId') && !contextCategoryId) {
+        return { error: 'bad_request', message: 'categoryId invalido' };
+    }
+
     const variant = await adminCatalogRepository.findVariantById(parsedId);
     if (!variant) {
         return { error: 'not_found', message: 'Variante no encontrada' };
+    }
+    if (contextProductId && Number(variant.productId || 0) !== Number(contextProductId)) {
+        return { error: 'bad_request', message: 'La variante no pertenece al producto indicado' };
+    }
+    if (contextCategoryId) {
+        const product = await adminCatalogRepository.findProductById(variant.productId);
+        if (!product) {
+            return { error: 'not_found', message: 'Producto no encontrado' };
+        }
+        if (Number(product.categoryId || 0) !== Number(contextCategoryId)) {
+            return { error: 'bad_request', message: 'La variante no pertenece a la categoria indicada' };
+        }
     }
 
     const result = await sequelize.transaction((transaction) =>
@@ -682,6 +780,7 @@ async function deleteVariant(variantId) {
 module.exports = {
     listCategories,
     createCategory,
+    updateCategory,
     listProducts,
     createProduct,
     updateProduct,

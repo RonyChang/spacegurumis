@@ -61,19 +61,38 @@ function contentTypeToExtension(contentType) {
     return '';
 }
 
-function buildImageKey(variantId, contentType) {
-    const id = Number(variantId);
+function imageScopePrefix(scope) {
+    const normalized = String(scope || '').trim().toLowerCase();
+    if (normalized === 'category') {
+        return 'categories';
+    }
+    if (normalized === 'product') {
+        return 'products';
+    }
+    if (normalized === 'variant') {
+        return 'variants';
+    }
+    throw new Error('scope invalido');
+}
+
+function buildScopedImageKey(scope, entityId, contentType) {
+    const id = Number(entityId);
     if (!Number.isFinite(id) || !Number.isInteger(id) || id <= 0) {
-        throw new Error('variantId invalido');
+        throw new Error('entityId invalido');
     }
 
+    const prefix = imageScopePrefix(scope);
     const extension = contentTypeToExtension(contentType);
     if (!extension) {
         throw new Error('contentType no permitido');
     }
 
     const uuid = crypto.randomUUID();
-    return `variants/${id}/${uuid}.${extension}`;
+    return `${prefix}/${id}/${uuid}.${extension}`;
+}
+
+function buildImageKey(variantId, contentType) {
+    return buildScopedImageKey('variant', variantId, contentType);
 }
 
 function normalizeSlotForKey(slot) {
@@ -263,6 +282,20 @@ async function headPublicObject(publicUrl, { timeoutMs = 10_000 } = {}) {
 }
 
 function presignVariantImageUpload({ variantId, contentType, byteSize }) {
+    return presignCatalogImageUpload({
+        scope: 'variant',
+        entityId: variantId,
+        contentType,
+        byteSize,
+    });
+}
+
+function presignCatalogImageUpload({
+    scope,
+    entityId,
+    contentType,
+    byteSize,
+}) {
     const validation = validateImageUploadRequest({ contentType, byteSize });
     if (!validation.ok) {
         const err = new Error(validation.error || 'Solicitud invalida');
@@ -270,7 +303,7 @@ function presignVariantImageUpload({ variantId, contentType, byteSize }) {
         throw err;
     }
 
-    const imageKey = buildImageKey(variantId, contentType);
+    const imageKey = buildScopedImageKey(scope, entityId, contentType);
     const publicUrl = buildPublicUrl(r2.publicBaseUrl, imageKey);
 
     const presigned = presignPutObject({
@@ -327,11 +360,14 @@ function presignSiteAssetUpload({ slot, contentType, byteSize }) {
 module.exports = {
     clampExpiresSeconds,
     contentTypeToExtension,
+    imageScopePrefix,
+    buildScopedImageKey,
     buildImageKey,
     buildSiteAssetKey,
     buildPublicUrl,
     validateImageUploadRequest,
     presignPutObject,
+    presignCatalogImageUpload,
     presignVariantImageUpload,
     presignSiteAssetUpload,
     // Backward-compatible alias.

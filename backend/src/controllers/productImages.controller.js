@@ -26,6 +26,17 @@ function notFound(res, message) {
     });
 }
 
+function buildScopeContext(req) {
+    return {
+        productId: req.query && Object.prototype.hasOwnProperty.call(req.query, 'productId')
+            ? req.query.productId
+            : undefined,
+        categoryId: req.query && Object.prototype.hasOwnProperty.call(req.query, 'categoryId')
+            ? req.query.categoryId
+            : undefined,
+    };
+}
+
 async function presign(req, res, next) {
     try {
         const variantId = parseId(req.params.id);
@@ -41,7 +52,7 @@ async function presign(req, res, next) {
         const result = await productImagesService.presignProductImage(variantId, {
             contentType,
             byteSize,
-        });
+        }, buildScopeContext(req));
 
         if (result.error === 'not_found') {
             return notFound(res, 'Variante no encontrada');
@@ -72,7 +83,7 @@ async function register(req, res, next) {
         }
 
         const payload = req.body && typeof req.body === 'object' ? req.body : {};
-        const result = await productImagesService.registerProductImage(variantId, payload);
+        const result = await productImagesService.registerProductImage(variantId, payload, buildScopeContext(req));
 
         if (result.error === 'not_found') {
             return notFound(res, 'Variante no encontrada');
@@ -102,7 +113,7 @@ async function list(req, res, next) {
             return badRequest(res, 'variantId invalido');
         }
 
-        const result = await productImagesService.listProductImages(variantId);
+        const result = await productImagesService.listProductImages(variantId, buildScopeContext(req));
 
         if (result.error === 'not_found') {
             return notFound(res, 'Variante no encontrada');
@@ -146,7 +157,12 @@ async function update(req, res, next) {
             patch.sortOrder = payload.sortOrder;
         }
 
-        const result = await productImagesService.updateProductImage(variantId, imageId, patch);
+        const result = await productImagesService.updateProductImage(
+            variantId,
+            imageId,
+            patch,
+            buildScopeContext(req)
+        );
 
         if (result.error === 'not_found') {
             return notFound(res, 'Imagen no encontrada');
@@ -181,7 +197,7 @@ async function remove(req, res, next) {
             return badRequest(res, 'imageId invalido');
         }
 
-        const result = await productImagesService.removeProductImage(variantId, imageId);
+        const result = await productImagesService.removeProductImage(variantId, imageId, buildScopeContext(req));
 
         if (result.error === 'not_found') {
             return notFound(res, 'Imagen no encontrada');

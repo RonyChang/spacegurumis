@@ -62,6 +62,13 @@ test('admin users routes include auth/admin and csrf on mutating endpoint', () =
     assert.ok(createNames.includes('authRequired'));
     assert.ok(createNames.includes('adminRequired'));
     assert.ok(createNames.includes('csrfRequired'));
+
+    const remove = findRoute(adminRoutes, '/api/v1/admin/users/:id', 'delete');
+    assert.ok(remove, 'remove route exists');
+    const removeNames = routeMiddlewareNames(remove);
+    assert.ok(removeNames.includes('authRequired'));
+    assert.ok(removeNames.includes('adminRequired'));
+    assert.ok(removeNames.includes('csrfRequired'));
 });
 
 test('adminUsers.controller.list returns 200 with meta total', async () => {
@@ -244,5 +251,73 @@ test('adminUsers.service.createOrPromoteAdmin promotes existing non-admin user b
         adminUsersRepository.findUserByEmail = originalFindUserByEmail;
         adminUsersRepository.updateUserRole = originalUpdateUserRole;
         adminUsersRepository.createUser = originalCreateUser;
+    }
+});
+
+test('adminUsers.service.removeAdmin prevents removing last active admin', async () => {
+    const originalFindUserById = adminUsersRepository.findUserById;
+    const originalCountActiveAdmins = adminUsersRepository.countActiveAdmins;
+    const originalUpdateUserRole = adminUsersRepository.updateUserRole;
+
+    try {
+        adminUsersRepository.findUserById = async () => ({
+            id: 1,
+            email: 'admin@example.com',
+            role: 'admin',
+            isActive: true,
+        });
+        adminUsersRepository.countActiveAdmins = async () => 1;
+        adminUsersRepository.updateUserRole = async () => {
+            throw new Error('should not be called');
+        };
+
+        const result = await adminUsersService.removeAdmin({ userId: 1 });
+        assert.equal(result.error, 'conflict');
+        assert.match(String(result.message || ''), /ultimo admin activo/i);
+    } finally {
+        adminUsersRepository.findUserById = originalFindUserById;
+        adminUsersRepository.countActiveAdmins = originalCountActiveAdmins;
+        adminUsersRepository.updateUserRole = originalUpdateUserRole;
+    }
+});
+
+test('adminUsers.service.removeAdmin demotes admin user when safety checks pass', async () => {
+    const originalFindUserById = adminUsersRepository.findUserById;
+    const originalCountActiveAdmins = adminUsersRepository.countActiveAdmins;
+    const originalUpdateUserRole = adminUsersRepository.updateUserRole;
+
+    try {
+        adminUsersRepository.findUserById = async () => ({
+            id: 2,
+            email: 'admin2@example.com',
+            firstName: 'Admin',
+            lastName: 'Two',
+            role: 'admin',
+            isActive: true,
+            emailVerifiedAt: null,
+            createdAt: null,
+            updatedAt: null,
+        });
+        adminUsersRepository.countActiveAdmins = async () => 2;
+        adminUsersRepository.updateUserRole = async (id, role) => ({
+            id,
+            email: 'admin2@example.com',
+            firstName: 'Admin',
+            lastName: 'Two',
+            role,
+            isActive: true,
+            emailVerifiedAt: null,
+            createdAt: null,
+            updatedAt: null,
+        });
+
+        const result = await adminUsersService.removeAdmin({ userId: 2 });
+        assert.equal(result.error, undefined);
+        assert.equal(result.data.action, 'removed');
+        assert.equal(result.data.user.role, 'customer');
+    } finally {
+        adminUsersRepository.findUserById = originalFindUserById;
+        adminUsersRepository.countActiveAdmins = originalCountActiveAdmins;
+        adminUsersRepository.updateUserRole = originalUpdateUserRole;
     }
 });

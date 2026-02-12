@@ -18,6 +18,14 @@ function isStrongEnoughPassword(password) {
     return text.length >= 8;
 }
 
+function parsePositiveInt(value) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+        return null;
+    }
+    return parsed;
+}
+
 function buildUserResponse(user) {
     return {
         id: user.id,
@@ -103,7 +111,43 @@ async function createOrPromoteAdmin(payload) {
     }
 }
 
+async function removeAdmin(payload) {
+    const userId = parsePositiveInt(payload && payload.userId);
+    if (!userId) {
+        return { error: 'bad_request', message: 'userId invalido' };
+    }
+
+    const target = await adminUsersRepository.findUserById(userId);
+    if (!target) {
+        return { error: 'not_found', message: 'Usuario no encontrado' };
+    }
+
+    if (String(target.role || '').toLowerCase() !== 'admin') {
+        return { error: 'conflict', message: 'El usuario no tiene rol admin' };
+    }
+
+    if (target.isActive) {
+        const activeAdmins = await adminUsersRepository.countActiveAdmins();
+        if (activeAdmins <= 1) {
+            return { error: 'conflict', message: 'No se puede remover el ultimo admin activo' };
+        }
+    }
+
+    const updated = await adminUsersRepository.updateUserRole(userId, 'customer');
+    if (!updated) {
+        return { error: 'not_found', message: 'Usuario no encontrado' };
+    }
+
+    return {
+        data: {
+            action: 'removed',
+            user: buildUserResponse(updated),
+        },
+    };
+}
+
 module.exports = {
     listAdminUsers,
     createOrPromoteAdmin,
+    removeAdmin,
 };

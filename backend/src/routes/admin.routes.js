@@ -4,6 +4,7 @@ const adminUsersController = require('../controllers/adminUsers.controller');
 const adminCatalogController = require('../controllers/adminCatalog.controller');
 const adminDiscountsController = require('../controllers/adminDiscounts.controller');
 const productImagesController = require('../controllers/productImages.controller');
+const scopedCatalogImagesController = require('../controllers/scopedCatalogImages.controller');
 const siteAssetsController = require('../controllers/siteAssets.controller');
 const authRequired = require('../middlewares/authRequired');
 const adminRequired = require('../middlewares/adminRequired');
@@ -27,6 +28,13 @@ router.post(
     adminRequired,
     adminUsersController.create
 );
+router.delete(
+    '/api/v1/admin/users/:id',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminUsersController.remove
+);
 
 // Admin catalog
 router.get(
@@ -41,6 +49,13 @@ router.post(
     csrfRequired,
     adminRequired,
     adminCatalogController.createCategory
+);
+router.patch(
+    '/api/v1/admin/catalog/categories/:id',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminCatalogController.updateCategory
 );
 router.delete(
     '/api/v1/admin/catalog/categories/:id',
@@ -119,6 +134,20 @@ router.post(
     adminRequired,
     adminDiscountsController.create
 );
+router.patch(
+    '/api/v1/admin/discounts/:id',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminDiscountsController.update
+);
+router.delete(
+    '/api/v1/admin/discounts/:id',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    adminDiscountsController.remove
+);
 
 // Product images (R2)
 router.post(
@@ -154,6 +183,78 @@ router.delete(
     csrfRequired,
     adminRequired,
     productImagesController.remove
+);
+
+// Category images (single image scope)
+router.post(
+    '/api/v1/admin/categories/:id/images/presign',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    scopedCatalogImagesController.categoryPresign
+);
+router.post(
+    '/api/v1/admin/categories/:id/images',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    scopedCatalogImagesController.categoryRegister
+);
+router.get(
+    '/api/v1/admin/categories/:id/images',
+    authRequired,
+    adminRequired,
+    scopedCatalogImagesController.categoryList
+);
+router.patch(
+    '/api/v1/admin/categories/:id/images/:imageId',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    scopedCatalogImagesController.categoryUpdate
+);
+router.delete(
+    '/api/v1/admin/categories/:id/images/:imageId',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    scopedCatalogImagesController.categoryRemove
+);
+
+// Product images (single image scope)
+router.post(
+    '/api/v1/admin/products/:id/images/presign',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    scopedCatalogImagesController.productPresign
+);
+router.post(
+    '/api/v1/admin/products/:id/images',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    scopedCatalogImagesController.productRegister
+);
+router.get(
+    '/api/v1/admin/products/:id/images',
+    authRequired,
+    adminRequired,
+    scopedCatalogImagesController.productList
+);
+router.patch(
+    '/api/v1/admin/products/:id/images/:imageId',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    scopedCatalogImagesController.productUpdate
+);
+router.delete(
+    '/api/v1/admin/products/:id/images/:imageId',
+    authRequired,
+    csrfRequired,
+    adminRequired,
+    scopedCatalogImagesController.productRemove
 );
 
 // Site decorative assets (R2)

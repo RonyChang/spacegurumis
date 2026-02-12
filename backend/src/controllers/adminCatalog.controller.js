@@ -67,6 +67,33 @@ async function createCategory(req, res, next) {
     }
 }
 
+async function updateCategory(req, res, next) {
+    try {
+        const result = await adminCatalogService.updateCategory(req.params.id, req.body || {});
+        if (result.error === 'bad_request') {
+            return badRequest(res, result.message);
+        }
+        if (result.error === 'not_found') {
+            return notFound(res, result.message || 'Categoria no encontrada');
+        }
+        if (result.error === 'conflict') {
+            return conflict(res, result.message);
+        }
+        if (result.error) {
+            return next(new Error(result.message || 'No se pudo actualizar la categoria'));
+        }
+
+        return res.status(200).json({
+            data: result.data,
+            message: 'OK',
+            errors: [],
+            meta: {},
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 async function listProducts(req, res, next) {
     try {
         const result = await adminCatalogService.listProducts();
@@ -241,7 +268,11 @@ async function deleteCategory(req, res, next) {
 
 async function deleteProduct(req, res, next) {
     try {
-        const result = await adminCatalogService.deleteProduct(req.params.id);
+        const result = await adminCatalogService.deleteProduct(req.params.id, {
+            categoryId: req.query && Object.prototype.hasOwnProperty.call(req.query, 'categoryId')
+                ? req.query.categoryId
+                : undefined,
+        });
         if (result.error === 'bad_request') {
             return badRequest(res, result.message);
         }
@@ -265,7 +296,14 @@ async function deleteProduct(req, res, next) {
 
 async function deleteVariant(req, res, next) {
     try {
-        const result = await adminCatalogService.deleteVariant(req.params.id);
+        const result = await adminCatalogService.deleteVariant(req.params.id, {
+            productId: req.query && Object.prototype.hasOwnProperty.call(req.query, 'productId')
+                ? req.query.productId
+                : undefined,
+            categoryId: req.query && Object.prototype.hasOwnProperty.call(req.query, 'categoryId')
+                ? req.query.categoryId
+                : undefined,
+        });
         if (result.error === 'bad_request') {
             return badRequest(res, result.message);
         }
@@ -290,6 +328,7 @@ async function deleteVariant(req, res, next) {
 module.exports = {
     listCategories,
     createCategory,
+    updateCategory,
     listProducts,
     createProduct,
     updateProduct,

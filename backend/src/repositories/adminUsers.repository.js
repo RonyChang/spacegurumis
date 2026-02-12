@@ -29,6 +29,11 @@ async function findUserByEmail(email) {
     return toPlain(row);
 }
 
+async function findUserById(id) {
+    const row = await User.findByPk(id);
+    return toPlain(row);
+}
+
 async function createUser(payload, options = {}) {
     const row = await User.create(payload, {
         transaction: options.transaction,
@@ -53,9 +58,21 @@ async function updateUserRole(userId, role, options = {}) {
     return toPlain(rows[0]);
 }
 
+async function countActiveAdmins(options = {}) {
+    return User.count({
+        where: {
+            role: 'admin',
+            isActive: true,
+        },
+        transaction: options.transaction,
+    });
+}
+
 module.exports = {
     listAdminUsers,
     findUserByEmail,
+    findUserById,
     createUser,
     updateUserRole,
+    countActiveAdmins,
 };

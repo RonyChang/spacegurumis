@@ -1,47 +1,40 @@
 # Admin Console API
 
-Esta guia documenta las rutas usadas por la consola `/admin` para gestion de usuarios admin, catalogo y codigos de descuento.
+Guia operativa para la consola admin modular en frontend y sus contratos backend bajo `/api/v1/admin/*`.
+
+## Frontend admin modular (`/admin/*`)
+
+Rutas de pantalla:
+
+- `/admin` (hub de modulos)
+- `/admin/usuarios-admin`
+- `/admin/catalogo`
+- `/admin/imagenes`
+- `/admin/descuentos`
+
+Todas estas rutas usan el mismo guard de sesion admin (cookies + perfil) y mantienen deep-link directo.
 
 ## Seguridad requerida
 
-Todas las rutas estan bajo `/api/v1/admin/*` y aplican:
+Todas las rutas backend de este documento aplican:
 
 - `authRequired` (sesion por cookies HttpOnly).
 - `adminRequired` (rol `admin`).
-- `csrfRequired` para mutaciones (`POST/PATCH/DELETE`).
+- `csrfRequired` para mutaciones (`POST`, `PATCH`, `DELETE`).
 
-En frontend, las mutaciones deben enviar header `X-CSRF-Token` igual al valor de cookie `sg_csrf`.
+Mutaciones desde frontend deben enviar `X-CSRF-Token` con el valor de la cookie CSRF.
 
-## 1) Admin users
+## 1) Usuarios admin
 
 ### GET `/api/v1/admin/users`
 
-Retorna listado de cuentas admin con campos seguros para gestion.
-
-Respuesta (`data[]`):
-
-```json
-{
-  "id": 1,
-  "email": "admin@spacegurumis.lat",
-  "firstName": "Admin",
-  "lastName": "Owner",
-  "role": "admin",
-  "isActive": true,
-  "emailVerifiedAt": "2026-02-11T00:00:00.000Z",
-  "createdAt": "2026-02-11T00:00:00.000Z",
-  "updatedAt": "2026-02-11T00:00:00.000Z"
-}
-```
+Lista usuarios con rol admin.
 
 ### POST `/api/v1/admin/users`
 
-Soporta dos flujos:
+Crea admin nuevo o promueve usuario existente por email.
 
-- Crear admin nuevo.
-- Promover usuario existente por email.
-
-Payload:
+Payload ejemplo:
 
 ```json
 {
@@ -52,206 +45,169 @@ Payload:
 }
 ```
 
-Respuesta:
+### DELETE `/api/v1/admin/users/:id`
+
+Remueve privilegios admin del usuario destino (democion de rol), sin borrado fisico.
+
+Reglas:
+
+- No se permite remover al ultimo admin activo.
+- Respuesta tipica:
 
 ```json
 {
-  "action": "created",
-  "user": { "id": 2, "email": "nuevo-admin@spacegurumis.lat", "role": "admin" }
+  "action": "demoted",
+  "user": {
+    "id": 2,
+    "email": "nuevo-admin@spacegurumis.lat",
+    "role": "customer"
+  }
 }
 ```
 
 Errores comunes:
 
-- `400` payload invalido (email/password/nombres).
-- `409` el usuario ya es admin.
+- `400` id invalido.
+- `404` usuario no encontrado.
+- `409` intento de dejar sistema sin admin activo.
 
-## 2) Admin catalog
+## 2) Catalogo admin
 
 ### GET `/api/v1/admin/catalog/categories`
 
-Lista categorias para formularios admin.
+Lista categorias para selectores admin.
 
 ### POST `/api/v1/admin/catalog/categories`
 
-Crea categoria nueva para flujo admin guiado.
+Crea categoria.
 
-Payload:
+### PATCH `/api/v1/admin/catalog/categories/:id`
 
-```json
-{
-  "name": "Amigurumis",
-  "slug": "amigurumis",
-  "description": "Categoria de prueba",
-  "isActive": true
-}
-```
-
-Errores comunes:
-
-- `400` validaciones (`name`/`slug` requeridos).
-- `409` slug o nombre duplicado.
+Actualiza metadata de categoria (`name`, `slug`, `description`, `isActive`).
 
 ### DELETE `/api/v1/admin/catalog/categories/:id`
 
-Elimina categoria por alcance, junto con su arbol dependiente de catalogo:
+Elimina categoria + arbol dependiente (productos, variantes, inventario, imagenes, cart items).
 
-- productos de esa categoria;
-- variantes de esos productos;
-- inventarios y imagenes de variantes;
-- imagenes legacy de producto.
-
-Respuesta `data` incluye contadores de eliminacion por tipo.
+Respuesta incluye resumen de contadores borrados.
 
 ### GET `/api/v1/admin/catalog/products`
 
-Lista productos con variantes e inventario resumido.
+Lista productos con variantes + inventario resumido.
 
 ### POST `/api/v1/admin/catalog/products`
 
-Alta transaccional:
-
-- Crea `product`.
-- Crea variante inicial.
-- Crea inventario inicial.
-
-Payload:
-
-```json
-{
-  "categoryId": 10,
-  "name": "Amigurumi Panda",
-  "slug": "amigurumi-panda",
-  "description": "Peluche tejido",
-  "isActive": true,
-  "sku": "PANDA-001",
-  "variantName": "Clasico",
-  "price": 79.9,
-  "initialStock": 6,
-  "weightGrams": 320,
-  "sizeLabel": "M"
-}
-```
-
-Errores comunes:
-
-- `409` slug o sku duplicado.
-- `400` validaciones.
+Crea producto + variante inicial + inventario inicial (transaccional).
 
 ### PATCH `/api/v1/admin/catalog/products/:id`
 
-Actualiza metadatos del producto (`name`, `slug`, `description`, `isActive`, `categoryId`).
+Actualiza metadata de producto (`categoryId`, `name`, `slug`, `description`, `isActive`).
 
-### DELETE `/api/v1/admin/catalog/products/:id`
+### DELETE `/api/v1/admin/catalog/products/:id?categoryId=<id-opcional>`
 
-Elimina el producto completo con variantes y registros dependientes.
+Elimina producto completo con sus dependencias.
 
-Respuesta `data` incluye contadores de eliminacion por tipo.
+Si `categoryId` se envia, backend valida pertenencia antes de borrar.
 
 ### POST `/api/v1/admin/catalog/products/:id/variants`
 
-Crea variante adicional con inventario inicial opcional.
+Crea variante adicional.
 
 ### PATCH `/api/v1/admin/catalog/variants/:id`
 
-Actualiza metadatos de variante (`sku`, `variantName`, `price`, `weightGrams`, `sizeLabel`).
+Actualiza metadata de variante.
 
 ### PATCH `/api/v1/admin/catalog/variants/:id/stock`
 
-Actualiza stock total de variante (valida que no sea menor a `reserved`).
+Actualiza stock de variante.
 
-### DELETE `/api/v1/admin/catalog/variants/:id`
+### DELETE `/api/v1/admin/catalog/variants/:id?productId=<id-opcional>&categoryId=<id-opcional>`
 
-Elimina solo la variante seleccionada con sus dependencias (inventario, imagenes y cart items).
+Elimina solo la variante.
 
-Respuesta `data` incluye contadores de eliminacion por tipo.
+Si se envia contexto padre (`productId`, `categoryId`), backend valida pertenencia antes de borrar.
 
-Nota:
+## 3) Imagenes admin por scope
 
-- `GET /api/v1/admin/catalog/products` retorna `id`, `name` y `slug` por producto para desambiguacion en selectores (`name (slug)`).
+### Reglas de cardinalidad
 
-## 3) Imagenes de variantes (R2)
+- Categoria: 1 imagen efectiva.
+- Producto: 1 imagen efectiva.
+- Variante: multiples imagenes (galeria).
 
-La consola admin reutiliza el flujo existente:
+Cuando scope es de imagen unica (categoria/producto), registrar una nueva imagen reemplaza la anterior en transaccion.
 
-- `POST /api/v1/admin/variants/:id/images/presign`
-- `POST /api/v1/admin/variants/:id/images`
-- `GET /api/v1/admin/variants/:id/images`
-- `PATCH /api/v1/admin/variants/:id/images/:imageId`
-- `DELETE /api/v1/admin/variants/:id/images/:imageId`
+### Scope categoria
 
-Referencia completa: `spacegurumis/backend/docs/r2-product-images.md`.
+- `POST /api/v1/admin/categories/:id/images/presign`
+- `POST /api/v1/admin/categories/:id/images`
+- `GET /api/v1/admin/categories/:id/images`
+- `PATCH /api/v1/admin/categories/:id/images/:imageId`
+- `DELETE /api/v1/admin/categories/:id/images/:imageId`
 
-## 4) Admin discounts
+### Scope producto
+
+- `POST /api/v1/admin/products/:id/images/presign?categoryId=<id-opcional>`
+- `POST /api/v1/admin/products/:id/images?categoryId=<id-opcional>`
+- `GET /api/v1/admin/products/:id/images?categoryId=<id-opcional>`
+- `PATCH /api/v1/admin/products/:id/images/:imageId?categoryId=<id-opcional>`
+- `DELETE /api/v1/admin/products/:id/images/:imageId?categoryId=<id-opcional>`
+
+### Scope variante (galeria)
+
+- `POST /api/v1/admin/variants/:id/images/presign?productId=<id-opcional>&categoryId=<id-opcional>`
+- `POST /api/v1/admin/variants/:id/images?productId=<id-opcional>&categoryId=<id-opcional>`
+- `GET /api/v1/admin/variants/:id/images?productId=<id-opcional>&categoryId=<id-opcional>`
+- `PATCH /api/v1/admin/variants/:id/images/:imageId?productId=<id-opcional>&categoryId=<id-opcional>`
+- `DELETE /api/v1/admin/variants/:id/images/:imageId?productId=<id-opcional>&categoryId=<id-opcional>`
+
+Notas:
+
+- Backend valida existencia y pertenencia de entidades cuando se provee contexto padre.
+- Registro valida existencia real del objeto en R2 via `HEAD` antes de persistir.
+
+## 4) Descuentos admin
 
 ### GET `/api/v1/admin/discounts`
 
-Lista codigos de descuento para gestion administrativa.
-
-Campos devueltos por item:
-
-- `id`
-- `code`
-- `percentage`
-- `isActive`
-- `startsAt`
-- `expiresAt`
-- `maxUses`
-- `usedCount`
-- `minSubtotal` (en soles)
+Lista descuentos para gestion.
 
 ### POST `/api/v1/admin/discounts`
 
-Crea codigo de descuento con reglas opcionales.
+Crea descuento.
 
-Payload:
+### PATCH `/api/v1/admin/discounts/:id`
 
-```json
-{
-  "code": "WELCOME10",
-  "percentage": 10,
-  "isActive": true,
-  "startsAt": "2026-02-11T00:00:00.000Z",
-  "expiresAt": "2026-03-01T00:00:00.000Z",
-  "maxUses": 100,
-  "minSubtotal": 50
-}
-```
+Edita descuento existente (mismas validaciones de negocio que create).
 
-Errores comunes:
+### DELETE `/api/v1/admin/discounts/:id`
 
-- `400` reglas invalidas (`percentage`, fechas, `maxUses`, `minSubtotal`).
-- `409` codigo ya existe.
+Elimina descuento.
 
-## 5) Checklist de despliegue admin (produccion)
+## 5) Deploy y rollback (orden recomendado)
 
-1. Configurar cookies seguras:
-- `COOKIE_SECURE=true`
-- `COOKIE_SAMESITE=lax` (o estrategia definida)
-- `TRUST_PROXY=true` si estas detras de Nginx/Dokploy.
+1. Aplicar migraciones SQL en este orden:
+- `category_images`.
+- dedupe + unique de `product_images` por `product_id`.
+- indices de soporte (`sort_order`, `id`).
 
-2. Configurar CSRF:
-- `CSRF_ALLOWED_ORIGINS=https://spacegurumis.lat,https://www.spacegurumis.lat`
-- `CSRF_REQUIRE_TOKEN=true`
+2. Desplegar backend con nuevas rutas admin.
 
-3. Confirmar CORS:
-- `CORS_ALLOWED_ORIGINS=https://spacegurumis.lat,https://www.spacegurumis.lat`
+3. Desplegar frontend modular `/admin/*`.
 
-4. Confirmar R2:
-- `R2_*` completo y `R2_PUBLIC_BASE_URL` valido.
-- CORS del bucket habilitado para `PUT`.
+4. Smoke test minimo:
+- acceso a `/admin` y modulos directos.
+- alta + remocion admin.
+- CRUD de categoria/producto/variante.
+- imagen categoria/producto (reemplazo) y variante (galeria).
+- CRUD de descuentos.
 
-5. Bootstrapping de admin:
-- Verificar que exista al menos un usuario con rol `admin`.
-- Si no existe, crear/promover uno por flujo controlado antes de abrir `/admin`.
+### Rollback rapido
 
-6. Smoke test previo a release:
-- Login admin y acceso `/admin`.
-- Crear admin nuevo.
-- Crear categoria nueva.
-- Crear producto + variante inicial.
-- Crear variante en producto existente.
-- Borrar por alcance: categoria, producto, variante.
-- Crear codigo de descuento.
-- Subir/registrar imagen de variante.
-- Verificar detalle publico en `/products/<slug>?sku=<sku>`.
+- Frontend: volver a build anterior (admin monolitico).
+- Backend: deshabilitar consumo de rutas nuevas desde frontend, manteniendo rutas legacy operativas.
+- DB: no eliminar tablas nuevas en caliente; si se revierte app, dejar esquema y reintentar despliegue.
+
+### Expectativas de validacion por pertenencia
+
+Si frontend envia `categoryId`/`productId` en deletes o mutaciones de imagenes, backend exige coherencia padre-hijo y rechaza operaciones cruzadas inconsistentes.

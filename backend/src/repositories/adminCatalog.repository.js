@@ -33,6 +33,19 @@ async function createCategory(payload, options = {}) {
     return toPlain(row);
 }
 
+async function updateCategory(categoryId, patch, options = {}) {
+    const [count] = await Category.update(patch, {
+        where: { id: categoryId },
+        transaction: options.transaction,
+    });
+
+    if (!count) {
+        return null;
+    }
+
+    return findCategoryById(categoryId);
+}
+
 async function listProducts() {
     const rows = await Product.findAll({
         include: [
@@ -306,6 +319,7 @@ module.exports = {
     listCategories,
     findCategoryById,
     createCategory,
+    updateCategory,
     listProducts,
     findProductById,
     findVariantById,

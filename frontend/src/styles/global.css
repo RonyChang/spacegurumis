@@ -400,6 +400,18 @@ h3 {
     font: inherit;
 }
 
+.field--checkbox {
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: center;
+    gap: 10px;
+}
+
+.field--checkbox input {
+    width: 16px;
+    height: 16px;
+}
+
 .status {
     padding: 10px 12px;
     border-radius: 14px;
@@ -710,6 +722,37 @@ h3 {
     gap: 14px;
 }
 
+.admin-shell {
+    display: grid;
+    gap: 16px;
+}
+
+.admin-shell__nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.admin-shell__content {
+    display: grid;
+    gap: 14px;
+}
+
+.admin-module-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.admin-hub__grid {
+    margin-top: 8px;
+}
+
+.admin-hub__card {
+    align-content: start;
+    gap: 14px;
+}
+
 .admin-list {
     display: grid;
     gap: 8px;
@@ -775,6 +818,10 @@ h3 {
     }
 
     .admin-page__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-module-grid {
         grid-template-columns: 1fr;
     }
 

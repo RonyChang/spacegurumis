@@ -268,6 +268,46 @@ const ProductImage = sequelize.define('ProductImage', {
     tableName: 'product_images',
 });
 
+const CategoryImage = sequelize.define('CategoryImage', {
+    id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true,
+        autoIncrement: true,
+    },
+    categoryId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+    },
+    imageKey: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        unique: true,
+    },
+    publicUrl: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+    },
+    contentType: {
+        type: DataTypes.STRING(120),
+        allowNull: false,
+    },
+    byteSize: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+    },
+    altText: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+    },
+    sortOrder: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        defaultValue: 0,
+    },
+}, {
+    tableName: 'category_images',
+});
+
 const ProductVariantImage = sequelize.define('ProductVariantImage', {
     id: {
         type: DataTypes.BIGINT,
@@ -664,8 +704,14 @@ Cart.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
 Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
 
+Category.hasOne(CategoryImage, { foreignKey: 'categoryId', as: 'image' });
+CategoryImage.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
+
 Product.hasMany(ProductImage, { foreignKey: 'productId', as: 'images' });
 ProductImage.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+
+Product.hasOne(ProductImage, { foreignKey: 'productId', as: 'image' });
+ProductImage.belongsTo(Product, { foreignKey: 'productId', as: 'imageProduct' });
 
 Product.hasMany(ProductVariant, { foreignKey: 'productId', as: 'variants' });
 ProductVariant.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
@@ -701,6 +747,7 @@ module.exports = {
     EmailVerification,
     UserAddress,
     Category,
+    CategoryImage,
     Product,
     ProductImage,
     ProductVariantImage,

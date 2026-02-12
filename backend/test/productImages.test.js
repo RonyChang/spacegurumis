@@ -355,3 +355,32 @@ test('product image service list/update/delete keeps metadata and removes delete
         productImagesRepository.deleteProductImage = originalDelete;
     }
 });
+
+test('variant image service rejects mismatched parent scope context', async () => {
+    const originalFindByPk = ProductVariant.findByPk;
+
+    try {
+        ProductVariant.findByPk = async () => ({
+            get() {
+                return {
+                    id: 123,
+                    productId: 88,
+                    product: {
+                        id: 88,
+                        categoryId: 7,
+                    },
+                };
+            },
+        });
+
+        const byProduct = await productImagesService.listProductImages(123, { productId: 99 });
+        assert.equal(byProduct.error, 'bad_request');
+        assert.match(String(byProduct.message || ''), /no pertenece al producto/i);
+
+        const byCategory = await productImagesService.listProductImages(123, { categoryId: 99 });
+        assert.equal(byCategory.error, 'bad_request');
+        assert.match(String(byCategory.message || ''), /no pertenece a la categoria/i);
+    } finally {
+        ProductVariant.findByPk = originalFindByPk;
+    }
+});

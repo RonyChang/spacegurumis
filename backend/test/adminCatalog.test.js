@@ -52,6 +52,13 @@ test('admin catalog routes include auth/admin and csrf on mutating endpoints', (
     assert.ok(createCategoryNames.includes('adminRequired'));
     assert.ok(createCategoryNames.includes('csrfRequired'));
 
+    const updateCategory = findRoute(adminRoutes, '/api/v1/admin/catalog/categories/:id', 'patch');
+    assert.ok(updateCategory, 'update category route exists');
+    const updateCategoryNames = routeMiddlewareNames(updateCategory);
+    assert.ok(updateCategoryNames.includes('authRequired'));
+    assert.ok(updateCategoryNames.includes('adminRequired'));
+    assert.ok(updateCategoryNames.includes('csrfRequired'));
+
     const deleteCategory = findRoute(adminRoutes, '/api/v1/admin/catalog/categories/:id', 'delete');
     assert.ok(deleteCategory, 'delete category route exists');
     const deleteCategoryNames = routeMiddlewareNames(deleteCategory);
@@ -202,6 +209,36 @@ test('adminCatalog.service.createCategory validates payload and maps duplicate s
     }
 });
 
+test('adminCatalog.service.updateCategory validates payload and updates metadata', async () => {
+    const originalUpdateCategory = adminCatalogRepository.updateCategory;
+
+    try {
+        let result = await adminCatalogService.updateCategory(10, {});
+        assert.equal(result.error, 'bad_request');
+
+        adminCatalogRepository.updateCategory = async (id, patch) => ({
+            id,
+            name: patch.name || 'Original',
+            slug: patch.slug || 'original',
+            description: Object.prototype.hasOwnProperty.call(patch, 'description') ? patch.description : 'desc',
+            isActive: Object.prototype.hasOwnProperty.call(patch, 'isActive') ? patch.isActive : true,
+        });
+
+        result = await adminCatalogService.updateCategory(10, {
+            name: 'Categoria editada',
+            slug: 'categoria-editada',
+            isActive: false,
+        });
+
+        assert.equal(result.error, undefined);
+        assert.equal(result.data.name, 'Categoria editada');
+        assert.equal(result.data.slug, 'categoria-editada');
+        assert.equal(result.data.isActive, false);
+    } finally {
+        adminCatalogRepository.updateCategory = originalUpdateCategory;
+    }
+});
+
 test('adminCatalog.service.deleteCategory returns not_found when category does not exist', async () => {
     const originalFindCategory = adminCatalogRepository.findCategoryById;
 
@@ -229,6 +266,32 @@ test('adminCatalog.service.deleteProduct and deleteVariant return not_found when
         assert.equal(variantResult.error, 'not_found');
     } finally {
         adminCatalogRepository.findProductById = originalFindProduct;
+        adminCatalogRepository.findVariantById = originalFindVariant;
+    }
+});
+
+test('adminCatalog.service.deleteProduct rejects mismatched category context', async () => {
+    const originalFindProduct = adminCatalogRepository.findProductById;
+
+    try {
+        adminCatalogRepository.findProductById = async () => ({ id: 10, categoryId: 999, name: 'Producto X' });
+        const result = await adminCatalogService.deleteProduct(10, { categoryId: 12 });
+        assert.equal(result.error, 'bad_request');
+        assert.match(String(result.message || ''), /no pertenece a la categoria/i);
+    } finally {
+        adminCatalogRepository.findProductById = originalFindProduct;
+    }
+});
+
+test('adminCatalog.service.deleteVariant rejects mismatched product context', async () => {
+    const originalFindVariant = adminCatalogRepository.findVariantById;
+
+    try {
+        adminCatalogRepository.findVariantById = async () => ({ id: 20, productId: 222, sku: 'SKU-1' });
+        const result = await adminCatalogService.deleteVariant(20, { productId: 10 });
+        assert.equal(result.error, 'bad_request');
+        assert.match(String(result.message || ''), /no pertenece al producto/i);
+    } finally {
         adminCatalogRepository.findVariantById = originalFindVariant;
     }
 });

@@ -18,6 +18,15 @@ function conflict(res, message) {
     });
 }
 
+function notFound(res, message) {
+    return res.status(404).json({
+        data: null,
+        message: message || 'No encontrado',
+        errors: [{ message: message || 'No encontrado' }],
+        meta: {},
+    });
+}
+
 async function list(req, res, next) {
     try {
         const result = await adminDiscountsService.listDiscounts();
@@ -60,7 +69,62 @@ async function create(req, res, next) {
     }
 }
 
+async function update(req, res, next) {
+    try {
+        const result = await adminDiscountsService.updateDiscount(req.params && req.params.id, req.body || {});
+
+        if (result.error === 'bad_request') {
+            return badRequest(res, result.message);
+        }
+        if (result.error === 'not_found') {
+            return notFound(res, result.message);
+        }
+        if (result.error === 'conflict') {
+            return conflict(res, result.message);
+        }
+        if (result.error) {
+            return next(new Error(result.message || 'No se pudo actualizar el descuento'));
+        }
+
+        return res.status(200).json({
+            data: result.data,
+            message: 'OK',
+            errors: [],
+            meta: {},
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
+async function remove(req, res, next) {
+    try {
+        const result = await adminDiscountsService.removeDiscount(req.params && req.params.id);
+
+        if (result.error === 'bad_request') {
+            return badRequest(res, result.message);
+        }
+        if (result.error === 'not_found') {
+            return notFound(res, result.message);
+        }
+        if (result.error) {
+            return next(new Error(result.message || 'No se pudo eliminar el descuento'));
+        }
+
+        return res.status(200).json({
+            data: result.data,
+            message: 'OK',
+            errors: [],
+            meta: {},
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 module.exports = {
     list,
     create,
+    update,
+    remove,
 };

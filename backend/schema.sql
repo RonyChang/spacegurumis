@@ -22,6 +22,23 @@ CREATE INDEX IF NOT EXISTS product_variant_images_variant_id_idx
 CREATE INDEX IF NOT EXISTS product_variant_images_variant_id_sort_order_idx
     ON product_variant_images(product_variant_id, sort_order, id);
 
+CREATE TABLE IF NOT EXISTS category_images (
+    id BIGSERIAL PRIMARY KEY,
+    category_id BIGINT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    image_key TEXT NOT NULL UNIQUE,
+    public_url TEXT NOT NULL,
+    content_type TEXT NOT NULL,
+    byte_size INTEGER NOT NULL CHECK (byte_size > 0),
+    alt_text TEXT,
+    sort_order INTEGER NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT category_images_category_unique UNIQUE (category_id)
+);
+
+CREATE INDEX IF NOT EXISTS category_images_category_id_sort_order_idx
+    ON category_images(category_id, sort_order, id);
+
 -- Migration helper:
 -- If legacy table product_images exists, migrate only products that have exactly one variant.
 DO $$
@@ -64,6 +81,36 @@ BEGIN
         ) only_variant
             ON only_variant.product_id = pi.product_id
         ON CONFLICT (image_key) DO NOTHING;
+    END IF;
+END $$;
+
+-- Product scope cardinality hardening:
+-- Keep one deterministic legacy row per product in product_images and then enforce uniqueness.
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'product_images'
+    ) THEN
+        WITH ranked AS (
+            SELECT
+                id,
+                product_id,
+                ROW_NUMBER() OVER (
+                    PARTITION BY product_id
+                    ORDER BY sort_order ASC, id ASC
+                ) AS rn
+            FROM product_images
+        )
+        DELETE FROM product_images pi
+        USING ranked r
+        WHERE pi.id = r.id
+          AND r.rn > 1;
+
+        EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS product_images_product_id_unique_idx ON product_images(product_id)';
+        EXECUTE 'CREATE INDEX IF NOT EXISTS product_images_product_id_sort_order_idx ON product_images(product_id, sort_order, id)';
     END IF;
 END $$;
 
