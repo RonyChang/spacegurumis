@@ -9,6 +9,16 @@ RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
 FROM node:20-alpine AS build
 WORKDIR /app
 
+ARG PUBLIC_API_BASE_URL
+ARG PUBLIC_WHATSAPP_NUMBER
+ARG PUBLIC_WHATSAPP_TEMPLATE
+ARG PUBLIC_WHATSAPP_ORDER_TEMPLATE
+
+ENV PUBLIC_API_BASE_URL=${PUBLIC_API_BASE_URL}
+ENV PUBLIC_WHATSAPP_NUMBER=${PUBLIC_WHATSAPP_NUMBER}
+ENV PUBLIC_WHATSAPP_TEMPLATE=${PUBLIC_WHATSAPP_TEMPLATE}
+ENV PUBLIC_WHATSAPP_ORDER_TEMPLATE=${PUBLIC_WHATSAPP_ORDER_TEMPLATE}
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
@@ -27,4 +37,3 @@ COPY --from=build /app/package.json ./package.json
 
 EXPOSE 4321
 CMD ["node", "./dist/server/entry.mjs"]
-
