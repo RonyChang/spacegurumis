@@ -26,6 +26,17 @@ Este backend usa autenticacion **solo por cookies `HttpOnly`** (mejor para SSR y
 
 Estas variables estan documentadas en `spacegurumis/backend/.env.example`.
 
+**Contrato estricto de arranque (obligatorias):**
+
+- `PORT`
+- `NODE_ENV` (`development`, `test` o `production`)
+- `DATABASE_URL` (postgres/postgresql)
+- `JWT_SECRET`
+- `CORS_ALLOWED_ORIGINS` (CSV con al menos un origin)
+- `CSRF_ALLOWED_ORIGINS` (CSV con al menos un origin)
+
+Si alguna falta o es invalida, el backend falla en arranque con error de validacion.
+
 **Reverse proxy:**
 
 - `TRUST_PROXY`: `true` cuando corres detras de Dokploy/Nginx (usa `X-Forwarded-For`/`X-Forwarded-Proto`).
@@ -41,9 +52,11 @@ Estas variables estan documentadas en `spacegurumis/backend/.env.example`.
 - `AUTH_COOKIE_REFRESH_ENABLED`: `true|false`.
 - `AUTH_COOKIE_REFRESH_EXPIRES_IN`
 
+No se soportan aliases legacy `AUTH_COOKIE_*` para nombres/atributos base de cookies.
+
 **CSRF:**
 
-- `CSRF_ALLOWED_ORIGINS`: allowlist de origins (coma-separado, sin `/` al final). Si no se setea, se intenta usar `FRONTEND_BASE_URL` como fallback.
+- `CSRF_ALLOWED_ORIGINS`: allowlist de origins (coma-separado, sin `/` al final), sin fallback implicito.
 - `CSRF_REQUIRE_TOKEN`: `true` (recomendado). Requiere `X-CSRF-Token` que coincida con cookie `sg_csrf`.
 
 **Rate limit (auth):**
@@ -149,7 +162,7 @@ El backend tiene `credentials: true` en CORS. Para usar cookies desde el fronten
 
 - `credentials: 'include'`
 
-El allowlist de CORS se puede configurar con `CORS_ALLOWED_ORIGINS` (CSV). Si no se define, el backend usa un fallback con origins comunes de desarrollo + tus dominios. En produccion, configura `CORS_ALLOWED_ORIGINS` solo con tus dominios publicos.
+El allowlist de CORS se configura con `CORS_ALLOWED_ORIGINS` (CSV) y es obligatorio en arranque. En produccion, configuralo solo con tus dominios publicos.
 
 ## Manual smoke-test checklist
 

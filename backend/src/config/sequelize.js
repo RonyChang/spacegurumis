@@ -1,11 +1,7 @@
 const { Sequelize } = require('sequelize');
+const { databaseUrl } = require('./index');
 
-const rawConnectionString = process.env.DATABASE_URL || '';
-const connectionString = rawConnectionString.trim() === '' ? null : rawConnectionString.trim();
-
-const parsedPort = process.env.PGPORT ? Number(process.env.PGPORT) : NaN;
-const port = Number.isNaN(parsedPort) ? undefined : parsedPort;
-
+// DATABASE_URL se valida previamente en el contrato de entorno.
 const baseConfig = {
     dialect: 'postgres',
     logging: false,
@@ -17,12 +13,6 @@ const baseConfig = {
     },
 };
 
-const sequelize = connectionString
-    ? new Sequelize(connectionString, baseConfig)
-    : new Sequelize(process.env.PGDATABASE, process.env.PGUSER, process.env.PGPASSWORD, {
-        ...baseConfig,
-        host: process.env.PGHOST,
-        port,
-    });
+const sequelize = new Sequelize(databaseUrl, baseConfig);
 
 module.exports = sequelize;

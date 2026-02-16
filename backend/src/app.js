@@ -2,8 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
 
-const { trustProxy } = require('./config');
-const { parseCsv } = require('./utils/env');
+const { trustProxy, corsAllowedOrigins } = require('./config');
 const { normalizeOrigin } = require('./utils/origin');
 const healthRoutes = require('./routes/health.routes');
 const authRoutes = require('./routes/auth.routes');
@@ -23,35 +22,12 @@ const securityHeaders = require('./middlewares/securityHeaders');
 
 const app = express();
 
-app.disable('x-powered-by');  // Desactiva el heacder X-Powered-By: Express
+app.disable('x-powered-by'); // Oculta cabecera de framework.
 if (trustProxy) {
     app.set('trust proxy', 1);
 }
 
-function buildCorsAllowedOrigins() {
-    const envOrigins = parseCsv(process.env.CORS_ALLOWED_ORIGINS)
-        .map(normalizeOrigin)
-        .filter(Boolean);
-
-    // If explicitly set, use env var as source of truth.
-    if (envOrigins.length) {
-        return new Set(envOrigins);
-    }
-
-    // Backwards compatible fallback (current hardcoded behavior).
-    return new Set([
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-        'http://localhost:5500',
-        'http://127.0.0.1:5500',
-        'http://localhost:4321',
-        'http://127.0.0.1:4321',
-        'https://spacegurumis.lat',
-        'https://www.spacegurumis.lat',
-    ].map(normalizeOrigin).filter(Boolean));
-}
-
-const allowedOrigins = buildCorsAllowedOrigins();
+const allowedOrigins = new Set(corsAllowedOrigins);
 
 app.use(
     cors({

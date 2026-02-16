@@ -65,3 +65,18 @@ test('authRequired returns 401 when no access cookie is present', () => {
     assert.equal(res.statusCode, 401);
     assert.equal(res.body && res.body.message, 'No autorizado');
 });
+
+test('authRequired prioritizes valid access cookie even when Authorization header is invalid', () => {
+    const user = { id: 'cookie-priority', email: 'priority@example.com', role: 'customer' };
+    const cookieToken = authTokens.signToken(user, { expiresIn: '1h', tokenType: 'access' });
+
+    const req = {
+        headers: { authorization: 'Bearer totally-invalid-token' },
+        cookies: { [security.cookies.accessCookieName]: cookieToken },
+    };
+    const { nextCalled, res } = runMiddleware(authRequired, req);
+
+    assert.equal(nextCalled, true);
+    assert.equal(res.statusCode, 200);
+    assert.deepEqual(req.user, { id: user.id, email: user.email, role: user.role });
+});

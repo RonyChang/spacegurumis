@@ -33,6 +33,7 @@ function buildDiscountGuardHarness() {
     process.env.CSRF_REQUIRE_TOKEN = 'true';
 
     clearModule('../src/config/security');
+    clearModule('../src/config/index');
     clearModule('../src/middlewares/authRequired');
     clearModule('../src/middlewares/adminRequired');
     clearModule('../src/middlewares/csrfRequired');
@@ -79,6 +80,7 @@ function buildDiscountGuardHarness() {
                 process.env.CSRF_REQUIRE_TOKEN = previousRequireToken;
             }
             clearModule('../src/config/security');
+            clearModule('../src/config/index');
             clearModule('../src/middlewares/authRequired');
             clearModule('../src/middlewares/csrfRequired');
             clearModule('../src/services/authTokens.service');

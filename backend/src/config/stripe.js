@@ -1,8 +1,9 @@
 const Stripe = require('stripe');
+const { integrations } = require('./index');
 
-const secretKey = process.env.STRIPE_SECRET_KEY || '';
-const successUrl = process.env.STRIPE_SUCCESS_URL || '';
-const cancelUrl = process.env.STRIPE_CANCEL_URL || '';
+const secretKey = integrations.stripe.secretKey;
+const successUrl = integrations.stripe.successUrl;
+const cancelUrl = integrations.stripe.cancelUrl;
 
 const stripe = secretKey ? new Stripe(secretKey) : null;
 

@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { jwtSecret } = require('../config');
 
 function createError(status, message) {
     const error = new Error(message);
@@ -7,12 +8,11 @@ function createError(status, message) {
 }
 
 function getJwtSecret() {
-    const secret = process.env.JWT_SECRET || '';
-    if (!secret) {
+    if (!jwtSecret) {
         throw createError(500, 'JWT_SECRET no configurado');
     }
 
-    return secret;
+    return jwtSecret;
 }
 
 function normalizeUserForToken(user) {
@@ -81,4 +81,3 @@ module.exports = {
     verifyAccessToken,
     verifyRefreshToken,
 };
-

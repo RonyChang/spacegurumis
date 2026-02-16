@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 
+const { integrations } = require('../config');
 const authRepository = require('../repositories/auth.repository');
 const adminTwoFactorService = require('./adminTwoFactor.service');
 const emailVerificationService = require('./emailVerification.service');
@@ -38,9 +39,7 @@ function buildUserResponse(user) {
 }
 
 function getGoogleConfig() {
-    const clientId = process.env.GOOGLE_CLIENT_ID || '';
-    const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
-    const callbackUrl = process.env.GOOGLE_CALLBACK_URL || '';
+    const { clientId, clientSecret, callbackUrl } = integrations.googleOAuth;
 
     if (!clientId || !clientSecret || !callbackUrl) {
         throw createError(500, 'Google OAuth no configurado');
@@ -339,7 +338,6 @@ module.exports = {
     resendVerification,
     verifyEmail,
 };
-
 
 
 
