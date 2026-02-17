@@ -73,3 +73,13 @@ Desktop (1440x900): PASS|FAIL - notas
 Mobile (390x844): PASS|FAIL - notas
 Observaciones adicionales:
 ```
+
+## Registro ejecutado
+
+```text
+Fecha: 2026-02-17
+Ambiente: Produccion
+Desktop (1440x900): PASS - Flujo Home -> Shop -> Product Detail -> Home estable; prefetch visible en enlaces elegibles.
+Mobile (390x844): PASS - Flujo completo usable sin regresiones; comparacion baseline mantiene acelerado igual o mejor en latencia percibida.
+Observaciones adicionales: Verificacion manual completada para cierre de OpenSpec 11.2.
+```

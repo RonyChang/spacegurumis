@@ -29,6 +29,10 @@ const CORE_ROUTE_CASES: CoreRouteCase[] = [
     { route: '/admin', titleNeedle: 'Spacegurumis | Admin', contentNeedle: 'Admin' },
 ];
 
+function isPublicStorefrontRoute(route: string) {
+    return route !== '/admin' && route !== '/admin-2fa';
+}
+
 async function importFresh<T = Record<string, unknown>>(filePath: string): Promise<T> {
     const url = `${pathToFileURL(filePath).href}?v=${Date.now()}-${Math.random()}`;
     return (await import(url)) as T;
@@ -90,11 +94,7 @@ describe('core SSR routes reachability runtime', () => {
             expect(html).toContain(routeCase.titleNeedle);
             expect(html).toContain(routeCase.contentNeedle);
 
-            if (routeCase.route === '/') {
-                expect(html).not.toContain('href="/admin"');
-            }
-
-            if (routeCase.route === '/shop') {
+            if (isPublicStorefrontRoute(routeCase.route)) {
                 expect(html).not.toContain('href="/admin"');
             }
 

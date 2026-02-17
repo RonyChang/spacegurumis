@@ -75,3 +75,23 @@ test('blocks non-admin direct access to module route', async () => {
     await screen.findByText('Tu cuenta no tiene permisos de administrador.');
     expect(screen.queryByRole('heading', { name: 'Usuarios admin' })).toBeNull();
 });
+
+test('blocks non-admin direct access to admin hub route', async () => {
+    getProfileMock.mockResolvedValueOnce({
+        data: {
+            user: {
+                id: 8,
+                email: 'customer@spacegurumis.lat',
+                role: 'customer',
+            },
+        },
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+
+    render(<AdminHubPage />);
+
+    await screen.findByText('Tu cuenta no tiene permisos de administrador.');
+    expect(screen.queryByRole('heading', { name: 'Panel de administracion' })).toBeNull();
+});
