@@ -5,9 +5,22 @@ import '../styles/global.css';
 type Props = {
     title?: string;
     description?: string;
+    navigationMode?: 'auto' | 'public' | 'admin' | 'none';
 };
 
-const { title = 'Spacegurumis', description = 'Spacegurumis' } = Astro.props as Props;
+const {
+    title = 'Spacegurumis',
+    description = 'Spacegurumis',
+    navigationMode = 'auto',
+} = Astro.props as Props;
+
+const pathname = Astro.url.pathname;
+const inferredNavigationMode =
+    pathname.startsWith('/admin') || pathname === '/admin-2fa'
+        ? 'admin'
+        : 'public';
+const resolvedNavigationMode =
+    navigationMode === 'auto' ? inferredNavigationMode : navigationMode;
 ---
 
 <!doctype html>
@@ -19,7 +32,7 @@ const { title = 'Spacegurumis', description = 'Spacegurumis' } = Astro.props as 
         <meta name="description" content={description} />
         <link rel="icon" href="/alien.ico" sizes="any" />
     </head>
-    <body>
+    <body class={`layout layout--${resolvedNavigationMode}`}>
         <a class="skip-link" href="#main">Saltar al contenido</a>
 
         <header class="site-header">
@@ -31,15 +44,28 @@ const { title = 'Spacegurumis', description = 'Spacegurumis' } = Astro.props as 
                     <span class="brand__text">Spacegurumis</span>
                 </a>
 
-                <nav class="nav">
-                    <a class="nav__link" href="/" data-nav-prefetch>Catálogo</a>
-                    <a class="nav__link" href="/cart" data-nav-prefetch>Carrito</a>
-                    <a class="nav__link" href="/orders" data-nav-prefetch>Mis pedidos</a>
-                    <a class="nav__link" href="/profile" data-nav-prefetch>Perfil</a>
-                    <a class="nav__link" href="/admin" data-nav-prefetch>Admin</a>
-                    <a class="nav__link" href="/login" data-nav-prefetch>Login</a>
-                    <a class="nav__link nav__link--cta" href="/register" data-nav-prefetch>Crear cuenta</a>
-                </nav>
+                {
+                    resolvedNavigationMode === 'public' ? (
+                        <nav class="nav" aria-label="Navegacion principal">
+                            <a class="nav__link" href="/" data-nav-prefetch>Inicio</a>
+                            <a class="nav__link" href="/shop" data-nav-prefetch>Tienda</a>
+                            <a class="nav__link" href="/cart" data-nav-prefetch>Carrito</a>
+                            <a class="nav__link" href="/orders" data-nav-prefetch>Mis pedidos</a>
+                            <a class="nav__link" href="/profile" data-nav-prefetch>Perfil</a>
+                            <a class="nav__link" href="/login" data-nav-prefetch>Login</a>
+                            <a class="nav__link nav__link--cta" href="/register" data-nav-prefetch>Crear cuenta</a>
+                        </nav>
+                    ) : null
+                }
+
+                {
+                    resolvedNavigationMode === 'admin' ? (
+                        <nav class="nav nav--admin" aria-label="Navegacion admin">
+                            <a class="nav__link" href="/" data-nav-prefetch>Ver tienda</a>
+                            <a class="nav__link nav__link--cta" href="/admin" data-nav-prefetch>Panel admin</a>
+                        </nav>
+                    ) : null
+                }
             </div>
         </header>
 

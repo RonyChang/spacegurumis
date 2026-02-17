@@ -1,0 +1,32 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ShopPage, { type ShopCatalogInitialData } from '../components/pages/ShopPage';
+import { serverApiGet } from '../lib/api/server';
+import { type CatalogVariant, type PaginationMeta } from '../lib/api/catalog';
+
+const CATALOG_PAGE_SIZE = 9;
+
+let initialData: ShopCatalogInitialData | null = null;
+
+try {
+    const catalogResponse = await serverApiGet<CatalogVariant[], PaginationMeta>(
+        Astro.url,
+        `/api/v1/catalog/variants?page=1&pageSize=${CATALOG_PAGE_SIZE}`
+    );
+
+    const page = Number(catalogResponse.meta?.page);
+    const totalPages = Number(catalogResponse.meta?.totalPages);
+
+    initialData = {
+        variants: Array.isArray(catalogResponse.data) ? catalogResponse.data : [],
+        page: Number.isFinite(page) && page > 0 ? page : 1,
+        totalPages: Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
+    };
+} catch {
+    initialData = null;
+}
+---
+
+<BaseLayout title="Spacegurumis | Tienda" description="Tienda de Spacegurumis">
+    <ShopPage initialData={initialData} client:load />
+</BaseLayout>

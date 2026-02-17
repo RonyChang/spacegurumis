@@ -42,7 +42,9 @@ export default async function globalSetup() {
         return;
     }
 
-    if (process.env.VITEST_FORCE_SSR_BUILD === '1' || !hasReusableSsrArtifacts()) {
-        buildSsrArtifacts();
+    if (process.env.VITEST_REUSE_SSR_BUILD === '1' && hasReusableSsrArtifacts()) {
+        return;
     }
+
+    buildSsrArtifacts();
 }

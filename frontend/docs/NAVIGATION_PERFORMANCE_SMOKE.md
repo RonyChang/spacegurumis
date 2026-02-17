@@ -1,8 +1,8 @@
-# Smoke de Navegacion Acelerada (Home <-> Product Detail)
+# Smoke de Navegacion Acelerada (Home <-> Shop <-> Product Detail)
 
 ## Objetivo
 
-Validar de forma reproducible que el flujo `Home -> Product Detail -> Home` mantiene navegacion usable y mejora de latencia percibida en enlaces elegibles (header + CTA de cards), sin regresiones funcionales.
+Validar de forma reproducible que el flujo `Home -> Shop -> Product Detail -> Home` mantiene navegacion usable y mejora de latencia percibida en enlaces elegibles (header + CTA de cards), sin regresiones funcionales.
 
 ## Contexto de ejecucion
 
@@ -15,30 +15,31 @@ Validar de forma reproducible que el flujo `Home -> Product Detail -> Home` mant
 
 ## Flujo base a verificar
 
-1. Abrir `/`.
-2. Desde una card de catalogo, usar `Ver detalle` para ir a `/products/<slug>?sku=<sku>`.
-3. Volver a Home con enlace elegible del header (por ejemplo `Catálogo`) o navegacion equivalente.
-4. Repetir el flujo 2 veces por viewport para confirmar consistencia.
+1. Abrir `/` (Home).
+2. Navegar a `/shop` desde el header (`Tienda`) o CTA principal de Home.
+3. Desde una card de tienda, usar `Ver detalle` para ir a `/products/<slug>?sku=<sku>`.
+4. Volver a Home con enlace elegible del header (`Inicio`).
+5. Repetir el flujo completo 2 veces por viewport para confirmar consistencia.
 
 ## Comparacion baseline (acelerado vs no acelerado)
 
 ### Corrida A: modo acelerado (normal)
 
 1. Mantener JavaScript habilitado.
-2. En Home, enfocar/hover sobre un enlace elegible (`Ver detalle` o link de header).
+2. En Home o Shop, enfocar/hover sobre un enlace elegible (`Tienda`, `Ver detalle`, `Inicio`).
 3. Verificar en Network que aparece prefetch antes del click de navegacion.
 4. Ejecutar el flujo base completo y registrar percepcion de fluidez.
 
 ### Corrida B: baseline no acelerado
 
 1. Deshabilitar JavaScript temporalmente en DevTools (o usar una sesion del navegador con JS desactivado).
-2. Repetir el mismo flujo Home -> Product Detail -> Home por navegacion directa.
+2. Repetir el mismo flujo Home -> Shop -> Product Detail -> Home por navegacion directa.
 3. Verificar en Network que no hay prefetch previo al click.
 4. Registrar percepcion de fluidez y comportamiento funcional del flujo.
 
 ### Criterio de comparacion
 
-- El modo acelerado debe mantenerse funcionalmente correcto y con fluidez percibida igual o mejor que baseline.
+- El modo acelerado debe mantenerse funcionalmente correcto y con fluidez percibida igual o mejor que baseline (sin JavaScript).
 - Si baseline se percibe mas fluido o hay regresion funcional en acelerado, marcar `FAIL`.
 
 ## Criterios de aprobado/rechazado
@@ -47,7 +48,7 @@ Validar de forma reproducible que el flujo `Home -> Product Detail -> Home` mant
 
 - Todas las rutas del flujo cargan sin errores visibles ni pantallas en blanco.
 - El cambio de ruta no presenta recarga pesada perceptible en enlaces elegibles.
-- Los enlaces elegibles (`header` y CTA `Ver detalle`) disparan comportamiento de prefetch/transition esperado.
+- Los enlaces elegibles (`header` y CTA `Ver detalle`) disparan comportamiento de prefetch/transition esperado en Home/Shop/Detail.
 - El flujo conserva comportamiento funcional correcto si no hay aceleracion (fallback a navegacion normal por anchor).
 
 ### Rechazado

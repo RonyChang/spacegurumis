@@ -5,7 +5,7 @@ import { serverApiGet } from '../lib/api/server';
 import { type CatalogVariant, type PaginationMeta } from '../lib/api/catalog';
 import { type SiteAsset } from '../lib/api/siteAssets';
 
-const CATALOG_PAGE_SIZE = 9;
+const CATALOG_PAGE_SIZE = 12;
 const HERO_SLOT = 'home-hero';
 const BANNER_SLOT = 'home-banner';
 
@@ -51,6 +51,6 @@ if (heroResult.status === 'fulfilled' && bannerResult.status === 'fulfilled') {
 }
 ---
 
-<BaseLayout title="Spacegurumis | Catálogo" description="Catálogo de Spacegurumis">
+<BaseLayout title="Spacegurumis | Inicio" description="Inicio de Spacegurumis">
     <HomePage initialData={initialData} client:load />
 </BaseLayout>

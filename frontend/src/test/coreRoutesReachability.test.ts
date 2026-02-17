@@ -16,8 +16,9 @@ type CoreRouteCase = {
 };
 
 const CORE_ROUTE_CASES: CoreRouteCase[] = [
-    { route: '/', titleNeedle: 'Spacegurumis | Catálogo', contentNeedle: 'Catalogo' },
-    { route: '/products/smoke-slug', titleNeedle: 'Spacegurumis | smoke-slug', contentNeedle: 'Detalle de producto' },
+    { route: '/', titleNeedle: 'Spacegurumis | Inicio', contentNeedle: 'Adorables' },
+    { route: '/shop', titleNeedle: 'Spacegurumis | Tienda', contentNeedle: 'Adopta un Alien' },
+    { route: '/products/smoke-slug', titleNeedle: 'Spacegurumis | smoke-slug', contentNeedle: 'Detalle' },
     { route: '/login', titleNeedle: 'Spacegurumis | Login', contentNeedle: 'Iniciar sesión' },
     { route: '/register', titleNeedle: 'Spacegurumis | Registro', contentNeedle: 'Crear cuenta' },
     { route: '/verify', titleNeedle: 'Spacegurumis | Verificar email', contentNeedle: 'Verificar email' },
@@ -25,6 +26,7 @@ const CORE_ROUTE_CASES: CoreRouteCase[] = [
     { route: '/profile', titleNeedle: 'Spacegurumis | Perfil', contentNeedle: 'Perfil' },
     { route: '/cart', titleNeedle: 'Spacegurumis | Carrito', contentNeedle: 'Carrito' },
     { route: '/orders', titleNeedle: 'Spacegurumis | Mis pedidos', contentNeedle: 'Mis pedidos' },
+    { route: '/admin', titleNeedle: 'Spacegurumis | Admin', contentNeedle: 'Admin' },
 ];
 
 async function importFresh<T = Record<string, unknown>>(filePath: string): Promise<T> {
@@ -87,6 +89,18 @@ describe('core SSR routes reachability runtime', () => {
             expect(html).toContain('<main id="main"');
             expect(html).toContain(routeCase.titleNeedle);
             expect(html).toContain(routeCase.contentNeedle);
+
+            if (routeCase.route === '/') {
+                expect(html).not.toContain('href="/admin"');
+            }
+
+            if (routeCase.route === '/shop') {
+                expect(html).not.toContain('href="/admin"');
+            }
+
+            if (routeCase.route === '/admin') {
+                expect(html).toContain('Ver tienda');
+            }
         });
     }
 });

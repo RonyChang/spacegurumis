@@ -82,6 +82,13 @@ function getVariantSummary(product: CatalogProductDetail | null, sku: string) {
     return product.variants.find((item) => String(item.sku) === sku) || null;
 }
 
+function normalizeQuantity(value: number) {
+    if (!Number.isFinite(value) || value <= 0) {
+        return 1;
+    }
+    return Math.floor(value);
+}
+
 export default function ProductDetailPage({
     slug,
     initialData = null,
@@ -107,6 +114,8 @@ export default function ProductDetailPage({
     const [variantStatus, setVariantStatus] = useState<'idle' | 'loading'>('idle');
     const [variantError, setVariantError] = useState('');
     const [selectedVariant, setSelectedVariant] = useState<CatalogVariantDetail | null>(initialSelectedVariant);
+    const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+    const [quantity, setQuantity] = useState(1);
 
     const [message, setMessage] = useState('');
     const [messageTone, setMessageTone] = useState<'info' | 'success' | 'error'>('info');
@@ -117,6 +126,7 @@ export default function ProductDetailPage({
         setProduct(null);
         setSelectedVariant(null);
         setSelectedSku('');
+        setSelectedImageIndex(0);
 
         try {
             const res = await getCatalogProductDetail(slug);
@@ -153,15 +163,16 @@ export default function ProductDetailPage({
     }
 
     async function handleAddToCart() {
-        const sku = selectedVariant && selectedVariant.sku ? String(selectedVariant.sku) : '';
+        const sku = selectedVariant && selectedVariant.sku ? String(selectedVariant.sku) : selectedSku;
         if (!sku) {
             return;
         }
 
+        const safeQuantity = normalizeQuantity(quantity);
         setMessage('');
 
         try {
-            await addCartItemApi(sku, 1);
+            await addCartItemApi(sku, safeQuantity);
             setMessageTone('success');
             setMessage('Producto agregado al carrito.');
         } catch (err) {
@@ -169,19 +180,21 @@ export default function ProductDetailPage({
                 const current = readGuestCart();
                 const existing = current.find((item) => item.sku === sku);
                 if (existing) {
-                    existing.quantity += 1;
+                    existing.quantity += safeQuantity;
                 } else {
                     current.push({
                         sku,
                         productName:
-                            selectedVariant.product && selectedVariant.product.name
+                            selectedVariant && selectedVariant.product && selectedVariant.product.name
                                 ? selectedVariant.product.name
                                 : product && product.name
                                     ? product.name
                                     : 'Producto',
-                        variantName: selectedVariant.variantName || null,
-                        price: Number(selectedVariant.price) || 0,
-                        quantity: 1,
+                        variantName: selectedVariant && selectedVariant.variantName ? selectedVariant.variantName : null,
+                        price: Number(selectedVariant && selectedVariant.price !== null
+                            ? selectedVariant.price
+                            : getVariantSummary(product, sku)?.price || 0),
+                        quantity: safeQuantity,
                     });
                 }
 
@@ -205,6 +218,7 @@ export default function ProductDetailPage({
             setVariantStatus('idle');
             setVariantError('');
             setSelectedVariant(initialSelectedVariant);
+            setSelectedImageIndex(0);
             return;
         }
 
@@ -246,6 +260,11 @@ export default function ProductDetailPage({
         return [{ url: '/placeholder-product.svg', altText: null, sortOrder: 0 }];
     }, [product, selectedVariant]);
 
+    useEffect(() => {
+        setSelectedImageIndex(0);
+    }, [selectedSku]);
+
+    const currentImage = gallery[Math.min(selectedImageIndex, Math.max(gallery.length - 1, 0))] || gallery[0];
     const variantTitle = useMemo(() => {
         if (selectedVariant) {
             return formatVariantTitle(selectedVariant);
@@ -261,6 +280,17 @@ export default function ProductDetailPage({
         return 'Producto';
     }, [product, selectedSummary, selectedVariant]);
 
+    const currentPrice = selectedVariant && selectedVariant.price !== null
+        ? selectedVariant.price
+        : selectedSummary && selectedSummary.price !== null
+            ? selectedSummary.price
+            : null;
+    const currentStock = selectedVariant
+        ? selectedVariant.stockAvailable
+        : selectedSummary
+            ? selectedSummary.stockAvailable
+            : 0;
+
     const whatsappUrl = useMemo(() => {
         const sku = selectedVariant && selectedVariant.sku ? selectedVariant.sku : selectedSku;
         const messageText = buildWhatsappProductMessage({
@@ -270,113 +300,204 @@ export default function ProductDetailPage({
         return buildWhatsappUrl(messageText);
     }, [selectedSku, selectedVariant, variantTitle]);
 
+    const relatedVariants = useMemo(() => {
+        if (!product || !Array.isArray(product.variants)) {
+            return [];
+        }
+
+        return product.variants
+            .filter((variant) => String(variant.sku) !== String(selectedSku))
+            .slice(0, 4)
+            .map((variant) => ({
+                sku: String(variant.sku),
+                label: variant.variantName || product.name,
+                price: variant.price,
+                href: `/products/${encodeURIComponent(product.slug)}?sku=${encodeURIComponent(String(variant.sku))}`,
+            }));
+    }, [product, selectedSku]);
+
     return (
-        <section className="surface page detail-page">
-            <div className="page__header">
-                <h1>Detalle de producto</h1>
-                {product ? <p className="muted">{product.name}</p> : null}
-            </div>
+        <section className="surface page storefront-shell detail-shell">
+            <nav className="detail-shell__breadcrumb" aria-label="Breadcrumb">
+                <a href="/" data-nav-prefetch>Inicio</a>
+                <span>/</span>
+                <a href="/shop" data-nav-prefetch>Tienda</a>
+                <span>/</span>
+                <span>{product ? product.name : 'Detalle'}</span>
+            </nav>
 
             {error ? <Alert tone="error">{error}</Alert> : null}
             {status === 'loading' ? <p className="status">Cargando producto...</p> : null}
 
             {product ? (
-                <div className="detail-page__content">
-                    <div className="gallery">
-                        <div className="gallery__main">
-                            <img
-                                src={gallery[0].url}
-                                alt={gallery[0].altText || variantTitle}
-                                loading="lazy"
-                                decoding="async"
-                                onError={imgErrorToPlaceholder}
-                            />
+                <div className="detail-shell__grid">
+                    <div className="detail-shell__media panel-card">
+                        <div className="gallery">
+                            <div className="gallery__main">
+                                <img
+                                    src={currentImage.url}
+                                    alt={currentImage.altText || variantTitle}
+                                    loading="eager"
+                                    decoding="async"
+                                    onError={imgErrorToPlaceholder}
+                                />
+                            </div>
+                            {gallery.length > 1 ? (
+                                <div className="gallery__thumbs">
+                                    {gallery.map((image, index) => (
+                                        <button
+                                            key={`${image.url}-${image.sortOrder}`}
+                                            type="button"
+                                            className={`gallery__thumb ${index === selectedImageIndex ? 'gallery__thumb--active' : ''}`}
+                                            onClick={() => setSelectedImageIndex(index)}
+                                            aria-label={`Imagen ${index + 1} de ${gallery.length}`}
+                                        >
+                                            <img
+                                                src={image.url}
+                                                alt={image.altText || variantTitle}
+                                                loading="lazy"
+                                                decoding="async"
+                                                onError={imgErrorToPlaceholder}
+                                            />
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : null}
                         </div>
-                        {gallery.length > 1 ? (
-                            <div className="gallery__thumbs">
-                                {gallery.map((image) => (
+                    </div>
+
+                    <div className="detail-shell__summary">
+                        <article className="panel-card detail-summary">
+                            <h1 className="detail__title">{variantTitle}</h1>
+                            <p className="detail__price">{formatPrice(currentPrice)}</p>
+                            <p className="card__meta">SKU: {selectedSku || 'Sin SKU'}</p>
+                            <p className="card__meta">Stock disponible: {currentStock}</p>
+                            <p className="muted">{product.description || 'Sin descripcion disponible.'}</p>
+
+                            {Array.isArray(product.variants) && product.variants.length ? (
+                                <div className="detail-page__variants">
+                                    <p className="field__label">Variantes</p>
+                                    <div className="detail-page__variant-list">
+                                        {product.variants.map((item) => (
+                                            <button
+                                                key={item.sku}
+                                                type="button"
+                                                className={[
+                                                    'chip',
+                                                    String(item.sku) === selectedSku ? 'chip--active' : '',
+                                                ].filter(Boolean).join(' ')}
+                                                onClick={() => setSelectedSku(String(item.sku))}
+                                            >
+                                                {item.variantName || item.sku}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            <div className="detail-summary__quantity">
+                                <p className="field__label">Cantidad</p>
+                                <div className="qty-control">
+                                    <button
+                                        type="button"
+                                        className="button button--ghost"
+                                        onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                                        aria-label="Reducir cantidad"
+                                    >
+                                        -
+                                    </button>
+                                    <input
+                                        className="field__input qty-control__input"
+                                        type="number"
+                                        min={1}
+                                        value={quantity}
+                                        onChange={(event) => setQuantity(normalizeQuantity(Number(event.target.value)))}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="button button--ghost"
+                                        onClick={() => setQuantity((current) => normalizeQuantity(current + 1))}
+                                        aria-label="Aumentar cantidad"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+
+                            {variantError ? <Alert tone="error">{variantError}</Alert> : null}
+                            {variantStatus === 'loading' ? (
+                                <p className="status">Cargando variante seleccionada...</p>
+                            ) : null}
+                            {message ? <Alert tone={messageTone}>{message}</Alert> : null}
+
+                            <div className="detail__actions">
+                                <Button type="button" variant="primary" onClick={handleAddToCart}>
+                                    Agregar al carrito
+                                </Button>
+                                {whatsappUrl ? (
+                                    <a
+                                        className="button button--whatsapp"
+                                        href={whatsappUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Consultar por WhatsApp
+                                    </a>
+                                ) : null}
+                            </div>
+                        </article>
+
+                        <article className="panel-card detail-facts">
+                            <h2>Dato curioso</h2>
+                            <p>
+                                Cada Spacegurumi se teje a mano y puede tener ligeras variaciones unicas en textura y expresion.
+                            </p>
+                        </article>
+
+                        <article className="panel-card detail-care">
+                            <h2>Guia de cuidado</h2>
+                            <ul className="list">
+                                <li>Lavar a mano con agua fria.</li>
+                                <li>Secar en superficie plana, sin sol directo.</li>
+                                <li>No usar lejia ni plancha.</li>
+                            </ul>
+                        </article>
+                    </div>
+                </div>
+            ) : null}
+
+            {relatedVariants.length ? (
+                <section className="panel-card detail-related">
+                    <div className="section-shell__header">
+                        <div>
+                            <p className="section-eyebrow">Tripulacion</p>
+                            <h2>Companeros de {product ? product.name : 'este modelo'}</h2>
+                        </div>
+                    </div>
+                    <div className="grid grid--cards">
+                        {relatedVariants.map((variant) => (
+                            <article className="card storefront-card" key={variant.sku}>
+                                <div className="card__thumb storefront-card__thumb">
                                     <img
-                                        key={`${image.url}-${image.sortOrder}`}
-                                        className="gallery__thumb"
-                                        src={image.url}
-                                        alt={image.altText || variantTitle}
+                                        src="/placeholder-product.svg"
+                                        alt={`${variant.label} (${variant.sku})`}
                                         loading="lazy"
                                         decoding="async"
                                         onError={imgErrorToPlaceholder}
                                     />
-                                ))}
-                            </div>
-                        ) : null}
-                    </div>
-
-                    <div className="detail-page__info">
-                        <h2 className="detail__title">{variantTitle}</h2>
-                        <p className="card__meta">Slug: {product.slug}</p>
-                        {selectedSku ? <p className="card__meta">SKU: {selectedSku}</p> : null}
-                        <p className="detail__price">
-                            {formatPrice(
-                                selectedVariant && selectedVariant.price !== null
-                                    ? selectedVariant.price
-                                    : selectedSummary && selectedSummary.price !== null
-                                        ? selectedSummary.price
-                                        : null
-                            )}
-                        </p>
-                        <p>
-                            Stock disponible:{' '}
-                            {selectedVariant
-                                ? selectedVariant.stockAvailable
-                                : selectedSummary
-                                    ? selectedSummary.stockAvailable
-                                    : 0}
-                        </p>
-                        <p className="muted">{product.description || 'Sin descripcion'}</p>
-
-                        {Array.isArray(product.variants) && product.variants.length ? (
-                            <div className="detail-page__variants">
-                                <p className="field__label">Variantes</p>
-                                <div className="detail-page__variant-list">
-                                    {product.variants.map((item) => (
-                                        <button
-                                            key={item.sku}
-                                            type="button"
-                                            className={[
-                                                'button',
-                                                'button--ghost',
-                                                String(item.sku) === selectedSku ? 'detail-page__variant--active' : '',
-                                            ].filter(Boolean).join(' ')}
-                                            onClick={() => setSelectedSku(String(item.sku))}
-                                        >
-                                            {item.variantName || item.sku}
-                                        </button>
-                                    ))}
                                 </div>
-                            </div>
-                        ) : null}
-
-                        {variantError ? <Alert tone="error">{variantError}</Alert> : null}
-                        {variantStatus === 'loading' ? (
-                            <p className="status">Cargando variante seleccionada...</p>
-                        ) : null}
-
-                        {message ? <Alert tone={messageTone}>{message}</Alert> : null}
-                        <div className="detail__actions">
-                            <Button type="button" variant="primary" onClick={handleAddToCart}>
-                                Agregar al carrito
-                            </Button>
-                            {whatsappUrl ? (
-                                <a
-                                    className="button button--whatsapp"
-                                    href={whatsappUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    Consultar por WhatsApp
-                                </a>
-                            ) : null}
-                        </div>
+                                <h3 className="card__title storefront-card__title">{variant.label}</h3>
+                                <p className="card__meta">SKU: {variant.sku}</p>
+                                <p className="card__price storefront-card__price">{formatPrice(variant.price)}</p>
+                                <div className="card__actions storefront-card__actions">
+                                    <a className="button button--ghost" href={variant.href} data-nav-prefetch>
+                                        Ver detalle
+                                    </a>
+                                </div>
+                            </article>
+                        ))}
                     </div>
-                </div>
+                </section>
             ) : null}
         </section>
     );

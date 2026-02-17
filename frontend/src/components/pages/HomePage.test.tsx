@@ -196,9 +196,9 @@ test('uses decorative fallback assets when site-assets API fails', async () => {
 
     render(<HomePage />);
 
-    const hero = await screen.findByRole('img', { name: 'Coleccion destacada de amigurumis' });
+    const hero = await screen.findByRole('img', { name: 'Coleccion destacada de Spacegurumis' });
     expect(hero).toHaveAttribute('src', '/site-fallback-hero.svg');
 
-    const banner = await screen.findByRole('img', { name: 'Banner de pedidos especiales de amigurumis' });
+    const banner = await screen.findByRole('img', { name: 'Banner de pedidos especiales de Spacegurumis' });
     expect(banner).toHaveAttribute('src', '/site-fallback-banner.svg');
 });

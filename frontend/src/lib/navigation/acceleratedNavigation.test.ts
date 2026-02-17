@@ -31,6 +31,22 @@ describe('acceleratedNavigation', () => {
         expect(isEligibleInternalLink(blankTargetLink, current)).toBeNull();
     });
 
+    test('isEligibleInternalLink rejects links with download attribute', () => {
+        const current = new URL('https://spacegurumis.lat/shop');
+        const downloadLink = createLink('https://spacegurumis.lat/assets/catalog.csv');
+        downloadLink.setAttribute('download', 'catalog.csv');
+
+        expect(isEligibleInternalLink(downloadLink, current)).toBeNull();
+    });
+
+    test('isEligibleInternalLink rejects links with non-self target', () => {
+        const current = new URL('https://spacegurumis.lat/shop');
+        const blankTargetLink = createLink('https://spacegurumis.lat/orders');
+        blankTargetLink.setAttribute('target', '_blank');
+
+        expect(isEligibleInternalLink(blankTargetLink, current)).toBeNull();
+    });
+
     test('createPrefetchController deduplicates duplicate URLs', async () => {
         const prefetcher = vi.fn().mockResolvedValue(undefined);
         const controller = createPrefetchController(prefetcher);

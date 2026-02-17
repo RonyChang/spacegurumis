@@ -104,9 +104,9 @@ afterEach(() => {
 test('renders product detail page from slug endpoint', async () => {
     render(<ProductDetailPage slug="amigurumi" />);
 
-    await screen.findByRole('heading', { name: 'Detalle de producto' });
+    await screen.findByText('SKU: SKU-RED');
     expect(getCatalogProductDetailMock).toHaveBeenCalledWith('amigurumi');
-    await screen.findByText('Slug: amigurumi');
+    expect(screen.getByRole('link', { name: 'Tienda' })).toHaveAttribute('href', '/shop');
 });
 
 test('uses SSR initial detail state without redundant first-load fetches', async () => {

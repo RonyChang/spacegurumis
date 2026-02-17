@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { addCartItem as addCartItemApi } from '../../lib/api/cart';
 import { ApiError } from '../../lib/api/client';
 import { listCatalogVariants, type CatalogVariant } from '../../lib/api/catalog';
@@ -9,15 +9,15 @@ import { buildWhatsappUrl } from '../../lib/whatsapp';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 
-const CATALOG_PAGE_SIZE = 9;
+const CATALOG_PAGE_SIZE = 12;
 const HERO_SLOT = 'home-hero';
 const BANNER_SLOT = 'home-banner';
 const HERO_FALLBACK_ASSETS: SiteAsset[] = [
     {
         id: 0,
         slot: HERO_SLOT,
-        title: 'Coleccion destacada',
-        altText: 'Coleccion destacada de amigurumis',
+        title: 'Nuevos modelos cada semana',
+        altText: 'Coleccion destacada de Spacegurumis',
         publicUrl: '/site-fallback-hero.svg',
         sortOrder: 0,
     },
@@ -27,7 +27,7 @@ const BANNER_FALLBACK_ASSETS: SiteAsset[] = [
         id: 0,
         slot: BANNER_SLOT,
         title: 'Haz tu pedido especial',
-        altText: 'Banner de pedidos especiales de amigurumis',
+        altText: 'Banner de pedidos especiales de Spacegurumis',
         publicUrl: '/site-fallback-banner.svg',
         sortOrder: 0,
     },
@@ -55,6 +55,13 @@ type HomePageProps = {
     initialData?: HomePageInitialData | null;
 };
 
+type FeaturedCollection = {
+    slug: string;
+    name: string;
+    total: number;
+    imageUrl: string;
+};
+
 function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
     const img = event.currentTarget;
     if (img.dataset.fallbackApplied === '1') {
@@ -80,6 +87,29 @@ function buildDetailUrl(variant: CatalogVariant) {
     return `/products/${encodedSlug}?sku=${encodedSku}`;
 }
 
+function buildFeaturedCollections(variants: CatalogVariant[]) {
+    const grouped = new Map<string, FeaturedCollection>();
+
+    for (const variant of variants) {
+        const slug = String(variant.category?.slug || 'general');
+        const categoryName = String(variant.category?.name || 'Coleccion');
+        const previous = grouped.get(slug);
+        if (previous) {
+            previous.total += 1;
+            continue;
+        }
+
+        grouped.set(slug, {
+            slug,
+            name: categoryName,
+            total: 1,
+            imageUrl: variant.imageUrl || '/placeholder-product.svg',
+        });
+    }
+
+    return Array.from(grouped.values()).sort((a, b) => b.total - a.total).slice(0, 3);
+}
+
 export default function HomePage({ initialData = null }: HomePageProps) {
     const initialCatalog = initialData && initialData.catalog ? initialData.catalog : null;
     const initialSlots = initialData && initialData.slots ? initialData.slots : null;
@@ -90,17 +120,6 @@ export default function HomePage({ initialData = null }: HomePageProps) {
     const [variants, setVariants] = useState<CatalogVariant[]>(
         initialCatalog && Array.isArray(initialCatalog.variants) ? initialCatalog.variants : []
     );
-    const [page, setPage] = useState(
-        initialCatalog && Number.isFinite(Number(initialCatalog.page)) ? Number(initialCatalog.page) : 1
-    );
-    const [totalPages, setTotalPages] = useState(
-        initialCatalog
-            && Number.isFinite(Number(initialCatalog.totalPages))
-            && Number(initialCatalog.totalPages) > 0
-            ? Number(initialCatalog.totalPages)
-            : 1
-    );
-
     const [heroAssets, setHeroAssets] = useState<SiteAsset[]>(
         normalizeSiteAssets(initialSlots ? initialSlots.hero : undefined, HERO_FALLBACK_ASSETS)
     );
@@ -111,19 +130,12 @@ export default function HomePage({ initialData = null }: HomePageProps) {
     const [message, setMessage] = useState('');
     const [messageTone, setMessageTone] = useState<'info' | 'success' | 'error'>('info');
 
-    async function loadVariants(nextPage: number) {
+    async function loadVariants() {
         setStatus('loading');
         setError('');
         try {
-            const res = await listCatalogVariants(nextPage, CATALOG_PAGE_SIZE);
+            const res = await listCatalogVariants(1, CATALOG_PAGE_SIZE);
             setVariants(Array.isArray(res.data) ? res.data : []);
-            const meta = res.meta || { page: nextPage, totalPages: 1 };
-            setPage(Number.isFinite(Number(meta.page)) ? Number(meta.page) : nextPage);
-            setTotalPages(
-                Number.isFinite(Number(meta.totalPages)) && Number(meta.totalPages) > 0
-                    ? Number(meta.totalPages)
-                    : 1
-            );
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Error al cargar el catalogo.');
         } finally {
@@ -191,7 +203,7 @@ export default function HomePage({ initialData = null }: HomePageProps) {
 
     useEffect(() => {
         if (!initialCatalog) {
-            loadVariants(1);
+            loadVariants();
         }
 
         if (!initialSlots) {
@@ -203,141 +215,162 @@ export default function HomePage({ initialData = null }: HomePageProps) {
     const promoBannerAsset = bannerAssets[0] || BANNER_FALLBACK_ASSETS[0];
     const secondaryBannerAsset = bannerAssets[1] || null;
     const promoWhatsappUrl = buildWhatsappUrl(HOME_PROMO_WHATSAPP_MESSAGE);
+    const featuredCollections = useMemo(() => buildFeaturedCollections(variants), [variants]);
+    const highlightedVariants = useMemo(() => variants.slice(0, 4), [variants]);
 
     return (
-        <section className="surface page">
-            <section className="home-decor" aria-label="Decoracion principal">
+        <section className="surface page storefront-shell home-shell">
+            <section className="home-hero panel-card">
+                <div className="home-hero__content">
+                    <p className="section-eyebrow">Hecho con amor espacial</p>
+                    <h1>
+                        Adorables <span>Spacegurumi Friends</span>
+                    </h1>
+                    <p>
+                        Compañeros tejidos a mano desde la galaxia para acompañarte todos los dias.
+                    </p>
+                    <div className="home-hero__actions">
+                        <a className="button button--primary" href="/shop" data-nav-prefetch>Adoptar ahora</a>
+                        <a className="button button--ghost" href="#pedido-especial">Pedido personalizado</a>
+                    </div>
+                </div>
+
                 <article className="hero-slot">
                     <img
                         src={heroAsset.publicUrl}
                         alt={heroAsset.altText || 'Hero decorativo'}
-                        loading="lazy"
+                        loading="eager"
                         decoding="async"
                         onError={imgErrorToPlaceholder}
                     />
                     <div className="hero-slot__overlay">
-                        <p className="hero-slot__eyebrow">Spacegurumis</p>
-                        <h2>{heroAsset.title || 'Coleccion destacada'}</h2>
+                        <p className="hero-slot__eyebrow">Nueva coleccion</p>
+                        <h2>{heroAsset.title || 'Modelos limitados cada semana'}</h2>
                     </div>
                 </article>
-                <aside className="banner-slot">
-                    <article className="promo-cta">
+            </section>
+
+            <section className="panel-card section-shell">
+                <div className="section-shell__header">
+                    <div>
+                        <p className="section-eyebrow">Explora la galaxia</p>
+                        <h2>Colecciones destacadas</h2>
+                    </div>
+                </div>
+
+                <div className="grid collection-grid">
+                    {featuredCollections.map((collection) => (
+                        <article className="collection-card" key={collection.slug}>
+                            <img
+                                src={collection.imageUrl}
+                                alt={`Coleccion ${collection.name}`}
+                                loading="lazy"
+                                decoding="async"
+                                onError={imgErrorToPlaceholder}
+                            />
+                            <div className="collection-card__overlay">
+                                <p>{collection.total} items</p>
+                                <h3>{collection.name}</h3>
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            </section>
+
+            <section className="panel-card section-shell">
+                <div className="section-shell__header">
+                    <div>
+                        <p className="section-eyebrow">Recien aterrizados</p>
+                        <h2>Favoritos de la semana</h2>
+                    </div>
+                    <a className="section-shell__link" href="/shop" data-nav-prefetch>Ver tienda</a>
+                </div>
+
+                {message ? <Alert tone={messageTone}>{message}</Alert> : null}
+                {error ? <Alert tone="error">{error}</Alert> : null}
+                {status === 'loading' ? <p className="status">Cargando productos...</p> : null}
+                {status === 'idle' && !highlightedVariants.length ? (
+                    <p className="status">No hay productos registrados.</p>
+                ) : null}
+
+                <div className="grid grid--cards catalog">
+                    {highlightedVariants.map((variant, index) => (
+                        <article className="card storefront-card" key={variant.sku}>
+                            <div className="card__thumb storefront-card__thumb">
+                                <img
+                                    src={variant.imageUrl || '/placeholder-product.svg'}
+                                    alt={formatVariantTitle(variant)}
+                                    loading={index < 2 ? 'eager' : 'lazy'}
+                                    decoding="async"
+                                    onError={imgErrorToPlaceholder}
+                                />
+                            </div>
+                            <p className="storefront-card__category">{variant.category.name}</p>
+                            <h3 className="card__title storefront-card__title">{formatVariantTitle(variant)}</h3>
+                            <p className="card__price storefront-card__price">{formatPrice(variant.price)}</p>
+                            <p className="card__meta">Stock disponible: {variant.stockAvailable}</p>
+
+                            <div className="card__actions storefront-card__actions">
+                                <a className="button button--ghost" href={buildDetailUrl(variant)} data-nav-prefetch>
+                                    Ver detalle
+                                </a>
+                                <Button type="button" variant="primary" onClick={() => handleAddToCart(variant)}>
+                                    Agregar
+                                </Button>
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            </section>
+
+            <section id="pedido-especial" className="home-banners">
+                <article className="promo-cta">
+                    <img
+                        src={promoBannerAsset.publicUrl}
+                        alt={promoBannerAsset.altText || 'Banner promocional de pedidos especiales'}
+                        loading="lazy"
+                        decoding="async"
+                        onError={imgErrorToPlaceholder}
+                    />
+                    <div className="promo-cta__overlay">
+                        <p className="promo-cta__eyebrow">Pedidos especiales</p>
+                        <h3>{HOME_PROMO_COPY}</h3>
+                        {promoWhatsappUrl ? (
+                            <a
+                                className="button button--whatsapp promo-cta__button"
+                                href={promoWhatsappUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                Contactar por WhatsApp
+                            </a>
+                        ) : (
+                            <div className="promo-cta__fallback" role="status" aria-live="polite">
+                                <span
+                                    className="button button--ghost promo-cta__button promo-cta__button--disabled"
+                                    aria-disabled="true"
+                                >
+                                    WhatsApp no disponible
+                                </span>
+                                <p>Por ahora no podemos abrir WhatsApp desde este dispositivo.</p>
+                            </div>
+                        )}
+                    </div>
+                </article>
+
+                {secondaryBannerAsset ? (
+                    <article className="banner-slot__card">
                         <img
-                            src={promoBannerAsset.publicUrl}
-                            alt={promoBannerAsset.altText || 'Banner promocional de pedidos especiales'}
+                            src={secondaryBannerAsset.publicUrl}
+                            alt={secondaryBannerAsset.altText || 'Banner decorativo'}
                             loading="lazy"
                             decoding="async"
                             onError={imgErrorToPlaceholder}
                         />
-                        <div className="promo-cta__overlay">
-                            <p className="promo-cta__eyebrow">Pedidos especiales</p>
-                            <h3>{HOME_PROMO_COPY}</h3>
-                            {promoWhatsappUrl ? (
-                                <a
-                                    className="button button--whatsapp promo-cta__button"
-                                    href={promoWhatsappUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                >
-                                    Contactar por WhatsApp
-                                </a>
-                            ) : (
-                                <div className="promo-cta__fallback" role="status" aria-live="polite">
-                                    <span
-                                        className="button button--ghost promo-cta__button promo-cta__button--disabled"
-                                        aria-disabled="true"
-                                    >
-                                        WhatsApp no disponible
-                                    </span>
-                                    <p>Por ahora no podemos abrir WhatsApp desde este dispositivo.</p>
-                                </div>
-                            )}
-                        </div>
+                        {secondaryBannerAsset.title ? <p>{secondaryBannerAsset.title}</p> : null}
                     </article>
-                    {secondaryBannerAsset ? (
-                        <article className="banner-slot__card">
-                            <img
-                                src={secondaryBannerAsset.publicUrl}
-                                alt={secondaryBannerAsset.altText || 'Banner decorativo'}
-                                loading="lazy"
-                                decoding="async"
-                                onError={imgErrorToPlaceholder}
-                            />
-                            {secondaryBannerAsset.title ? <p>{secondaryBannerAsset.title}</p> : null}
-                        </article>
-                    ) : null}
-                </aside>
+                ) : null}
             </section>
-
-            <div className="page__header">
-                <h1>Catalogo</h1>
-                <p className="muted">Explora las variantes disponibles y agrega tus favoritos al carrito.</p>
-            </div>
-
-            {message ? <Alert tone={messageTone}>{message}</Alert> : null}
-            {error ? <Alert tone="error">{error}</Alert> : null}
-
-            {status === 'loading' ? <p className="status">Cargando catalogo...</p> : null}
-            {status === 'idle' && !variants.length ? (
-                <p className="status">No hay productos registrados.</p>
-            ) : null}
-
-            <div className="grid grid--cards catalog">
-                {variants.map((variant) => (
-                    <article className="card" key={variant.sku}>
-                        <div className="card__thumb">
-                            <img
-                                src={variant.imageUrl || '/placeholder-product.svg'}
-                                alt={formatVariantTitle(variant)}
-                                loading="lazy"
-                                decoding="async"
-                                onError={imgErrorToPlaceholder}
-                            />
-                        </div>
-                        <h3 className="card__title">{formatVariantTitle(variant)}</h3>
-                        <p className="card__meta">SKU: {variant.sku}</p>
-                        <p className="card__price">{formatPrice(variant.price)}</p>
-                        <p className="card__meta">Stock disponible: {variant.stockAvailable}</p>
-
-                        <div className="card__actions">
-                            <a className="button button--ghost" href={buildDetailUrl(variant)} data-nav-prefetch>
-                                Ver detalle
-                            </a>
-                            <Button
-                                type="button"
-                                variant="primary"
-                                onClick={() => handleAddToCart(variant)}
-                            >
-                                Agregar
-                            </Button>
-                        </div>
-                    </article>
-                ))}
-            </div>
-
-            {totalPages > 1 ? (
-                <div className="pagination">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => loadVariants(page - 1)}
-                        disabled={page <= 1 || status === 'loading'}
-                    >
-                        Anterior
-                    </Button>
-                    <span className="pagination__info">
-                        Pagina {page} de {totalPages}
-                    </span>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => loadVariants(page + 1)}
-                        disabled={page >= totalPages || status === 'loading'}
-                    >
-                        Siguiente
-                    </Button>
-                </div>
-            ) : null}
         </section>
     );
 }
