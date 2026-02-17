@@ -184,3 +184,13 @@ Seguridad (manual)
 - [ ] en DevTools > Network: requests no envian `Authorization: Bearer ...`
 - [ ] en DevTools > Network: requests mutables incluyen `X-CSRF-Token` y no fallan por CSRF
 - [ ] `/admin` no renderiza formularios cuando el rol no es `admin`
+
+## 9) Hardening de navegacion (rutas core + latencia percibida)
+
+Evidencia versionada de este hardening:
+- `frontend/docs/NAVIGATION_PERFORMANCE_SMOKE.md`
+
+Precondiciones de la prueba automatizada de reachability (`frontend/src/test/coreRoutesReachability.test.ts`):
+- Dependencias instaladas en `spacegurumis/frontend` (`npm install`).
+- Estructura de rutas SSR y componentes de pagina en sus paths esperados (`src/pages` y `src/components/pages`).
+- Se recomienda correr desde la carpeta frontend: `npm test`.

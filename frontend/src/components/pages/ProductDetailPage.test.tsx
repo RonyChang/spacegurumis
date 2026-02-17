@@ -109,6 +109,42 @@ test('renders product detail page from slug endpoint', async () => {
     await screen.findByText('Slug: amigurumi');
 });
 
+test('uses SSR initial detail state without redundant first-load fetches', async () => {
+    render(
+        <ProductDetailPage
+            slug="amigurumi"
+            initialData={{
+                product: makeProductDetail(),
+                selectedSku: 'SKU-BLUE',
+                selectedVariant: makeVariantDetail('SKU-BLUE', 'Azul'),
+            }}
+        />
+    );
+
+    await screen.findByText('SKU: SKU-BLUE');
+    expect(getCatalogProductDetailMock).not.toHaveBeenCalled();
+    expect(getCatalogVariantDetailMock).not.toHaveBeenCalled();
+});
+
+test('falls back deterministically to first available variant when SSR sku is invalid', async () => {
+    render(
+        <ProductDetailPage
+            slug="amigurumi"
+            initialData={{
+                product: makeProductDetail(),
+                selectedSku: 'SKU-UNKNOWN',
+                selectedVariant: null,
+            }}
+        />
+    );
+
+    await waitFor(() => {
+        expect(getCatalogVariantDetailMock).toHaveBeenCalledWith('SKU-RED');
+    });
+    expect(getCatalogProductDetailMock).not.toHaveBeenCalled();
+    expect(window.location.search).toContain('sku=SKU-RED');
+});
+
 test('loads selected variant from sku query and updates selection when user switches variant', async () => {
     window.history.replaceState({}, '', '/products/amigurumi?sku=SKU-BLUE');
     render(<ProductDetailPage slug="amigurumi" />);

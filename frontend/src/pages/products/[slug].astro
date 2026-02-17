@@ -1,15 +1,66 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import ProductDetailPage from '../../components/pages/ProductDetailPage';
+import ProductDetailPage, { type ProductDetailInitialData } from '../../components/pages/ProductDetailPage';
+import { serverApiGet } from '../../lib/api/server';
+import { type CatalogProductDetail, type CatalogVariantDetail } from '../../lib/api/catalog';
 
 const slug = typeof Astro.params.slug === 'string' ? Astro.params.slug : '';
 const safeSlug = slug.trim();
+const requestedSkuRaw = Astro.url.searchParams.get('sku');
+const requestedSku = typeof requestedSkuRaw === 'string' ? requestedSkuRaw.trim() : '';
 
 if (!safeSlug) {
     return Astro.redirect('/');
 }
+
+let pageTitle = `Spacegurumis | ${safeSlug}`;
+let initialData: ProductDetailInitialData | null = null;
+
+try {
+    const productResponse = await serverApiGet<CatalogProductDetail>(
+        Astro.url,
+        `/api/v1/catalog/products/${encodeURIComponent(safeSlug)}`
+    );
+
+    const product = productResponse.data || null;
+    if (product) {
+        pageTitle = `Spacegurumis | ${product.name}`;
+
+        const availableSkus = new Set(
+            (Array.isArray(product.variants) ? product.variants : [])
+                .map((item) => String(item?.sku || '').trim())
+                .filter(Boolean)
+        );
+        const selectedSku = requestedSku && availableSkus.has(requestedSku)
+            ? requestedSku
+            : Array.isArray(product.variants) && product.variants.length
+                ? String(product.variants[0].sku)
+                : '';
+
+        let selectedVariant: CatalogVariantDetail | null = null;
+        if (selectedSku) {
+            try {
+                const variantResponse = await serverApiGet<CatalogVariantDetail>(
+                    Astro.url,
+                    `/api/v1/catalog/variants/${encodeURIComponent(selectedSku)}`
+                );
+                selectedVariant = variantResponse.data || null;
+            } catch {
+                selectedVariant = null;
+            }
+        }
+
+        initialData = {
+            product,
+            selectedSku,
+            selectedVariant,
+        };
+    }
+} catch {
+    initialData = null;
+}
 ---
 
-<BaseLayout title={`Spacegurumis | ${safeSlug}`}>
-    <ProductDetailPage slug={safeSlug} client:load />
+<BaseLayout title={pageTitle}>
+    <ProductDetailPage slug={safeSlug} initialData={initialData} client:load />
 </BaseLayout>

@@ -35,6 +35,26 @@ const BANNER_FALLBACK_ASSETS: SiteAsset[] = [
 const HOME_PROMO_COPY = 'Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)';
 const HOME_PROMO_WHATSAPP_MESSAGE = 'Hola, quiero cotizar un pedido especial para amigurumis.';
 
+export type HomeCatalogInitialState = {
+    variants: CatalogVariant[];
+    page: number;
+    totalPages: number;
+};
+
+export type HomeSlotsInitialState = {
+    hero: SiteAsset[];
+    banner: SiteAsset[];
+};
+
+export type HomePageInitialData = {
+    catalog: HomeCatalogInitialState | null;
+    slots: HomeSlotsInitialState | null;
+};
+
+type HomePageProps = {
+    initialData?: HomePageInitialData | null;
+};
+
 function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
     const img = event.currentTarget;
     if (img.dataset.fallbackApplied === '1') {
@@ -60,16 +80,33 @@ function buildDetailUrl(variant: CatalogVariant) {
     return `/products/${encodedSlug}?sku=${encodedSku}`;
 }
 
-export default function HomePage() {
+export default function HomePage({ initialData = null }: HomePageProps) {
+    const initialCatalog = initialData && initialData.catalog ? initialData.catalog : null;
+    const initialSlots = initialData && initialData.slots ? initialData.slots : null;
+
     const [status, setStatus] = useState<'idle' | 'loading'>('idle');
     const [error, setError] = useState('');
 
-    const [variants, setVariants] = useState<CatalogVariant[]>([]);
-    const [page, setPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
+    const [variants, setVariants] = useState<CatalogVariant[]>(
+        initialCatalog && Array.isArray(initialCatalog.variants) ? initialCatalog.variants : []
+    );
+    const [page, setPage] = useState(
+        initialCatalog && Number.isFinite(Number(initialCatalog.page)) ? Number(initialCatalog.page) : 1
+    );
+    const [totalPages, setTotalPages] = useState(
+        initialCatalog
+            && Number.isFinite(Number(initialCatalog.totalPages))
+            && Number(initialCatalog.totalPages) > 0
+            ? Number(initialCatalog.totalPages)
+            : 1
+    );
 
-    const [heroAssets, setHeroAssets] = useState<SiteAsset[]>(HERO_FALLBACK_ASSETS);
-    const [bannerAssets, setBannerAssets] = useState<SiteAsset[]>(BANNER_FALLBACK_ASSETS);
+    const [heroAssets, setHeroAssets] = useState<SiteAsset[]>(
+        normalizeSiteAssets(initialSlots ? initialSlots.hero : undefined, HERO_FALLBACK_ASSETS)
+    );
+    const [bannerAssets, setBannerAssets] = useState<SiteAsset[]>(
+        normalizeSiteAssets(initialSlots ? initialSlots.banner : undefined, BANNER_FALLBACK_ASSETS)
+    );
 
     const [message, setMessage] = useState('');
     const [messageTone, setMessageTone] = useState<'info' | 'success' | 'error'>('info');
@@ -153,9 +190,14 @@ export default function HomePage() {
     }
 
     useEffect(() => {
-        loadVariants(1);
-        loadDecorativeAssets();
-    }, []);
+        if (!initialCatalog) {
+            loadVariants(1);
+        }
+
+        if (!initialSlots) {
+            loadDecorativeAssets();
+        }
+    }, [initialCatalog, initialSlots]);
 
     const heroAsset = heroAssets[0] || HERO_FALLBACK_ASSETS[0];
     const promoBannerAsset = bannerAssets[0] || BANNER_FALLBACK_ASSETS[0];
@@ -258,7 +300,7 @@ export default function HomePage() {
                         <p className="card__meta">Stock disponible: {variant.stockAvailable}</p>
 
                         <div className="card__actions">
-                            <a className="button button--ghost" href={buildDetailUrl(variant)}>
+                            <a className="button button--ghost" href={buildDetailUrl(variant)} data-nav-prefetch>
                                 Ver detalle
                             </a>
                             <Button

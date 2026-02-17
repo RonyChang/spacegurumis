@@ -15,6 +15,13 @@ import Button from '../ui/Button';
 
 type ProductDetailPageProps = {
     slug: string;
+    initialData?: ProductDetailInitialData | null;
+};
+
+export type ProductDetailInitialData = {
+    product: CatalogProductDetail;
+    selectedSku: string;
+    selectedVariant: CatalogVariantDetail | null;
 };
 
 function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
@@ -52,8 +59,8 @@ function updateUrlSkuParam(sku: string) {
     window.history.replaceState({}, '', nextUrl);
 }
 
-function pickInitialSku(product: CatalogProductDetail) {
-    const requested = getUrlSkuParam();
+function pickInitialSku(product: CatalogProductDetail, requestedSku = '') {
+    const requested = requestedSku.trim();
     const availableSkus = new Set(
         (Array.isArray(product.variants) ? product.variants : [])
             .map((item) => String(item && item.sku ? item.sku : '').trim())
@@ -75,15 +82,31 @@ function getVariantSummary(product: CatalogProductDetail | null, sku: string) {
     return product.variants.find((item) => String(item.sku) === sku) || null;
 }
 
-export default function ProductDetailPage({ slug }: ProductDetailPageProps) {
+export default function ProductDetailPage({
+    slug,
+    initialData = null,
+}: ProductDetailPageProps) {
+    const initialProduct = initialData && initialData.product && String(initialData.product.slug) === slug
+        ? initialData.product
+        : null;
+    const initialSelectedSku = initialProduct
+        ? pickInitialSku(initialProduct, initialData && initialData.selectedSku ? initialData.selectedSku : '')
+        : '';
+    const initialSelectedVariant =
+        initialData
+        && initialData.selectedVariant
+        && String(initialData.selectedVariant.sku) === initialSelectedSku
+            ? initialData.selectedVariant
+            : null;
+
     const [status, setStatus] = useState<'idle' | 'loading'>('idle');
     const [error, setError] = useState('');
-    const [product, setProduct] = useState<CatalogProductDetail | null>(null);
+    const [product, setProduct] = useState<CatalogProductDetail | null>(initialProduct);
 
-    const [selectedSku, setSelectedSku] = useState('');
+    const [selectedSku, setSelectedSku] = useState(initialSelectedSku);
     const [variantStatus, setVariantStatus] = useState<'idle' | 'loading'>('idle');
     const [variantError, setVariantError] = useState('');
-    const [selectedVariant, setSelectedVariant] = useState<CatalogVariantDetail | null>(null);
+    const [selectedVariant, setSelectedVariant] = useState<CatalogVariantDetail | null>(initialSelectedVariant);
 
     const [message, setMessage] = useState('');
     const [messageTone, setMessageTone] = useState<'info' | 'success' | 'error'>('info');
@@ -100,7 +123,7 @@ export default function ProductDetailPage({ slug }: ProductDetailPageProps) {
             const item = res.data || null;
             setProduct(item);
             if (item) {
-                setSelectedSku(pickInitialSku(item));
+                setSelectedSku(pickInitialSku(item, getUrlSkuParam()));
             }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'No se pudo cargar el producto.');
@@ -174,16 +197,31 @@ export default function ProductDetailPage({ slug }: ProductDetailPageProps) {
     }
 
     useEffect(() => {
+        if (initialProduct) {
+            setStatus('idle');
+            setError('');
+            setProduct(initialProduct);
+            setSelectedSku(initialSelectedSku);
+            setVariantStatus('idle');
+            setVariantError('');
+            setSelectedVariant(initialSelectedVariant);
+            return;
+        }
+
         loadProduct();
-    }, [slug]);
+    }, [initialProduct, initialSelectedSku, initialSelectedVariant, slug]);
 
     useEffect(() => {
         if (!selectedSku) {
             return;
         }
+
         updateUrlSkuParam(selectedSku);
+        if (selectedVariant && String(selectedVariant.sku) === selectedSku) {
+            return;
+        }
         loadVariant(selectedSku);
-    }, [selectedSku]);
+    }, [selectedSku, selectedVariant]);
 
     const selectedSummary = useMemo(
         () => getVariantSummary(product, selectedSku),

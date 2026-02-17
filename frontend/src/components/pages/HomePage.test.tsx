@@ -93,6 +93,56 @@ test('renders decorative assets from site-assets API', async () => {
     expect(banner).toHaveAttribute('src', 'https://assets.spacegurumis.lat/site/home-banner.webp');
 });
 
+test('uses SSR initial data without duplicate first-load fetches', async () => {
+    const variant = makeVariant({
+        sku: 'SKU-SSR',
+        variantName: 'SSR',
+        imageUrl: 'https://assets.spacegurumis.lat/variants/ssr/main.webp',
+    });
+
+    render(
+        <HomePage
+            initialData={{
+                catalog: {
+                    variants: [variant],
+                    page: 1,
+                    totalPages: 1,
+                },
+                slots: {
+                    hero: [{
+                        id: 11,
+                        slot: 'home-hero',
+                        title: 'Hero SSR',
+                        altText: 'Hero desde SSR',
+                        publicUrl: 'https://assets.spacegurumis.lat/site/hero-ssr.webp',
+                        sortOrder: 0,
+                    }],
+                    banner: [{
+                        id: 12,
+                        slot: 'home-banner',
+                        title: 'Banner SSR',
+                        altText: 'Banner desde SSR',
+                        publicUrl: 'https://assets.spacegurumis.lat/site/banner-ssr.webp',
+                        sortOrder: 0,
+                    }],
+                },
+            }}
+        />
+    );
+
+    expect(listCatalogVariantsMock).not.toHaveBeenCalled();
+    expect(listSiteAssetsBySlotMock).not.toHaveBeenCalled();
+
+    expect(await screen.findByRole('img', { name: 'Amigurumi - SSR' })).toHaveAttribute(
+        'src',
+        'https://assets.spacegurumis.lat/variants/ssr/main.webp'
+    );
+    expect(screen.getByRole('img', { name: 'Hero desde SSR' })).toHaveAttribute(
+        'src',
+        'https://assets.spacegurumis.lat/site/hero-ssr.webp'
+    );
+});
+
 test('renders promotional whatsapp CTA with the new copy', async () => {
     render(<HomePage />);
 

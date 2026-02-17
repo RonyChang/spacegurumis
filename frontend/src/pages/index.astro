@@ -1,9 +1,56 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import HomePage from '../components/pages/HomePage';
+import HomePage, { type HomePageInitialData } from '../components/pages/HomePage';
+import { serverApiGet } from '../lib/api/server';
+import { type CatalogVariant, type PaginationMeta } from '../lib/api/catalog';
+import { type SiteAsset } from '../lib/api/siteAssets';
+
+const CATALOG_PAGE_SIZE = 9;
+const HERO_SLOT = 'home-hero';
+const BANNER_SLOT = 'home-banner';
+
+let initialData: HomePageInitialData = {
+    catalog: null,
+    slots: null,
+};
+
+try {
+    const catalogResponse = await serverApiGet<CatalogVariant[], PaginationMeta>(
+        Astro.url,
+        `/api/v1/catalog/variants?page=1&pageSize=${CATALOG_PAGE_SIZE}`
+    );
+
+    const page = Number(catalogResponse.meta?.page);
+    const totalPages = Number(catalogResponse.meta?.totalPages);
+
+    initialData = {
+        ...initialData,
+        catalog: {
+            variants: Array.isArray(catalogResponse.data) ? catalogResponse.data : [],
+            page: Number.isFinite(page) && page > 0 ? page : 1,
+            totalPages: Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
+        },
+    };
+} catch {
+    // Mantiene fallback cliente cuando no hay payload inicial SSR.
+}
+
+const [heroResult, bannerResult] = await Promise.allSettled([
+    serverApiGet<SiteAsset[]>(Astro.url, `/api/v1/site-assets/${encodeURIComponent(HERO_SLOT)}`),
+    serverApiGet<SiteAsset[]>(Astro.url, `/api/v1/site-assets/${encodeURIComponent(BANNER_SLOT)}`),
+]);
+
+if (heroResult.status === 'fulfilled' && bannerResult.status === 'fulfilled') {
+    initialData = {
+        ...initialData,
+        slots: {
+            hero: Array.isArray(heroResult.value.data) ? heroResult.value.data : [],
+            banner: Array.isArray(bannerResult.value.data) ? bannerResult.value.data : [],
+        },
+    };
+}
 ---
 
 <BaseLayout title="Spacegurumis | Catálogo" description="Catálogo de Spacegurumis">
-    <HomePage client:load />
+    <HomePage initialData={initialData} client:load />
 </BaseLayout>
-
