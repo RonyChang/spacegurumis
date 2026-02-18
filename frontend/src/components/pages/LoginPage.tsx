@@ -132,6 +132,10 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                 />
 
+                <div className="auth__aux-link">
+                    <a href="/forgot-password">¿Olvidaste tu contraseña?</a>
+                </div>
+
                 {error ? <Alert tone="error">{error}</Alert> : null}
 
                 <Button type="submit" variant="primary" disabled={status === 'loading'}>

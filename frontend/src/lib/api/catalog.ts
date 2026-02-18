@@ -7,6 +7,40 @@ export type PaginationMeta = {
     totalPages: number;
 };
 
+export type CatalogFacetCategory = {
+    slug: string;
+    name: string;
+    total: number;
+};
+
+export type CatalogFacetProduct = {
+    slug: string;
+    name: string;
+    categorySlug: string | null;
+    total: number;
+};
+
+export type CatalogFacetFiltersMeta = {
+    selected: {
+        category: string | null;
+        product: string | null;
+        minPrice: number | null;
+        maxPrice: number | null;
+    };
+    available: {
+        categories: CatalogFacetCategory[];
+        products: CatalogFacetProduct[];
+        priceRange: {
+            min: number | null;
+            max: number | null;
+        };
+    };
+};
+
+export type CatalogVariantsMeta = PaginationMeta & {
+    filters?: CatalogFacetFiltersMeta;
+};
+
 export type CatalogCategory = {
     id: number;
     name: string;
@@ -59,12 +93,69 @@ export type CatalogVariantDetail = CatalogVariant & {
     images?: CatalogImage[];
 };
 
-export function listCatalogVariants(page: number, pageSize: number) {
-    const safePage = Number.isFinite(Number(page)) && page > 0 ? Math.floor(page) : 1;
-    const safePageSize =
-        Number.isFinite(Number(pageSize)) && pageSize > 0 ? Math.floor(pageSize) : 9;
-    return apiGet<CatalogVariant[], PaginationMeta>(
-        `/api/v1/catalog/variants?page=${safePage}&pageSize=${safePageSize}`
+export type CatalogVariantsQuery = {
+    page?: number;
+    pageSize?: number;
+    category?: string | null;
+    product?: string | null;
+    minPrice?: number | null;
+    maxPrice?: number | null;
+    includeFacets?: boolean;
+};
+
+function appendQueryParam(params: URLSearchParams, key: string, value: unknown) {
+    if (value === null || value === undefined) {
+        return;
+    }
+
+    if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return;
+        }
+        params.set(key, trimmed);
+        return;
+    }
+
+    if (typeof value === 'number') {
+        if (!Number.isFinite(value)) {
+            return;
+        }
+        params.set(key, String(value));
+        return;
+    }
+
+    if (typeof value === 'boolean') {
+        params.set(key, value ? 'true' : 'false');
+    }
+}
+
+export function listCatalogVariants(
+    pageOrQuery: number | CatalogVariantsQuery = 1,
+    pageSizeArg = 9
+) {
+    const query = typeof pageOrQuery === 'number'
+        ? { page: pageOrQuery, pageSize: pageSizeArg }
+        : pageOrQuery;
+    const safePage = Number.isFinite(Number(query.page)) && Number(query.page) > 0
+        ? Math.floor(Number(query.page))
+        : 1;
+    const safePageSize = Number.isFinite(Number(query.pageSize)) && Number(query.pageSize) > 0
+        ? Math.floor(Number(query.pageSize))
+        : 9;
+
+    const params = new URLSearchParams({
+        page: String(safePage),
+        pageSize: String(safePageSize),
+    });
+    appendQueryParam(params, 'category', query.category);
+    appendQueryParam(params, 'product', query.product);
+    appendQueryParam(params, 'minPrice', query.minPrice);
+    appendQueryParam(params, 'maxPrice', query.maxPrice);
+    appendQueryParam(params, 'includeFacets', query.includeFacets);
+
+    return apiGet<CatalogVariant[], CatalogVariantsMeta>(
+        `/api/v1/catalog/variants?${params.toString()}`
     );
 }
 

@@ -54,6 +54,12 @@ Si alguna falta o es invalida, el backend falla en arranque con error de validac
 
 No se soportan aliases legacy `AUTH_COOKIE_*` para nombres/atributos base de cookies.
 
+**Password recovery (forgot/reset):**
+
+- `PASSWORD_RESET_TTL_MINUTES`: vigencia del token one-time (default `30`).
+- `PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS`: cooldown por usuario para evitar spam de correos (default `60`).
+- `PASSWORD_RESET_URL_PATH`: path frontend usado en el enlace de recovery (default `/reset-password`).
+
 **CSRF:**
 
 - `CSRF_ALLOWED_ORIGINS`: allowlist de origins (coma-separado, sin `/` al final), sin fallback implicito.
@@ -68,6 +74,8 @@ No se soportan aliases legacy `AUTH_COOKIE_*` para nombres/atributos base de coo
 - `AUTH_RATE_LIMIT_RESEND_MAX`
 - `AUTH_RATE_LIMIT_ADMIN_2FA_MAX`
 - `AUTH_RATE_LIMIT_REFRESH_MAX`
+- `AUTH_RATE_LIMIT_FORGOT_PASSWORD_MAX`
+- `AUTH_RATE_LIMIT_RESET_PASSWORD_MAX`
 
 ## CSRF (solo para cookie auth)
 
@@ -118,8 +126,22 @@ Se aplica rate limiting in-memory a endpoints sensibles de auth:
 - `POST /api/v1/auth/resend-verification`
 - `POST /api/v1/auth/admin/verify-2fa`
 - `POST /api/v1/auth/refresh` (si esta habilitado)
+- `POST /api/v1/auth/password/forgot`
+- `POST /api/v1/auth/password/reset`
 
 Cuando se excede el limite, responde `429` y agrega `Retry-After`.
+
+## Password recovery (flujo seguro)
+
+Endpoints:
+- `POST /api/v1/auth/password/forgot`
+- `POST /api/v1/auth/password/reset`
+
+Reglas de seguridad aplicadas:
+- Respuesta no enumerativa en `forgot` (mensaje generico para cuentas existentes/no existentes/no elegibles).
+- Token aleatorio de alta entropia; en BD se guarda solo `token_hash` (no token plano).
+- Token de un solo uso (`used_at`) con expiracion estricta (`expires_at`).
+- Reset transaccional: actualiza `password_hash`, consume token y revoca tokens activos restantes del usuario.
 
 ## Security headers
 

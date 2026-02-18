@@ -20,6 +20,8 @@ const CORE_ROUTE_CASES: CoreRouteCase[] = [
     { route: '/shop', titleNeedle: 'Spacegurumis | Tienda', contentNeedle: 'Adopta un Alien' },
     { route: '/products/smoke-slug', titleNeedle: 'Spacegurumis | smoke-slug', contentNeedle: 'Detalle' },
     { route: '/login', titleNeedle: 'Spacegurumis | Login', contentNeedle: 'Iniciar sesión' },
+    { route: '/forgot-password', titleNeedle: 'Spacegurumis | Recuperar contraseña', contentNeedle: 'Recuperar contraseña' },
+    { route: '/reset-password', titleNeedle: 'Spacegurumis | Restablecer contraseña', contentNeedle: 'Nueva contraseña' },
     { route: '/register', titleNeedle: 'Spacegurumis | Registro', contentNeedle: 'Crear cuenta' },
     { route: '/verify', titleNeedle: 'Spacegurumis | Verificar email', contentNeedle: 'Verificar email' },
     { route: '/admin-2fa', titleNeedle: 'Spacegurumis | Verificación admin', contentNeedle: 'Verificación admin' },

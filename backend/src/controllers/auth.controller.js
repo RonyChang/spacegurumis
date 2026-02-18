@@ -83,6 +83,30 @@ function validateResendPayload(payload) {
     return errors;
 }
 
+function validateForgotPasswordPayload(payload) {
+    const errors = [];
+
+    if (!isValidEmail(payload.email)) {
+        errors.push('Email inválido');
+    }
+
+    return errors;
+}
+
+function validateResetPasswordPayload(payload) {
+    const errors = [];
+
+    if (!isNonEmptyString(payload.token) || payload.token.trim().length < 32) {
+        errors.push('Token inválido');
+    }
+
+    if (!isNonEmptyString(payload.newPassword) || payload.newPassword.trim().length < 6) {
+        errors.push('Contraseña mínima de 6 caracteres');
+    }
+
+    return errors;
+}
+
 async function register(req, res, next) {
     try {
         const { email, firstName, lastName, password } = req.body || {};
@@ -253,6 +277,61 @@ async function resendVerification(req, res, next) {
     }
 }
 
+async function forgotPassword(req, res, next) {
+    try {
+        const { email } = req.body || {};
+        const errors = validateForgotPasswordPayload({ email });
+        if (errors.length) {
+            return res.status(400).json({
+                data: null,
+                message: 'Datos inválidos',
+                errors: errors.map((message) => ({ message })),
+                meta: {},
+            });
+        }
+
+        await authService.requestPasswordReset({ email });
+        return res.status(200).json({
+            data: {
+                accepted: true,
+            },
+            message: 'Si el correo es elegible, enviaremos instrucciones de recuperación.',
+            errors: [],
+            meta: {},
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
+async function resetPassword(req, res, next) {
+    try {
+        const { token, newPassword } = req.body || {};
+        const errors = validateResetPasswordPayload({ token, newPassword });
+        if (errors.length) {
+            return res.status(400).json({
+                data: null,
+                message: 'Datos inválidos',
+                errors: errors.map((message) => ({ message })),
+                meta: {},
+            });
+        }
+
+        const result = await authService.resetPassword({
+            token: token.trim(),
+            newPassword,
+        });
+        return res.status(200).json({
+            data: result,
+            message: 'OK',
+            errors: [],
+            meta: {},
+        });
+    } catch (error) {
+        return next(error);
+    }
+}
+
 async function googleStart(req, res, next) {
     try {
         const url = authService.buildGoogleAuthUrl();
@@ -385,6 +464,8 @@ module.exports = {
     verifyEmail,
     verifyAdminTwoFactor,
     resendVerification,
+    forgotPassword,
+    resetPassword,
     googleStart,
     googleCallback,
     logout,

@@ -72,6 +72,19 @@ async function updateUserEmailVerifiedAt(userId, emailVerifiedAt) {
     return rows[0].get({ plain: true });
 }
 
+async function updateUserPasswordHash(userId, passwordHash, options = {}) {
+    const [updatedCount, rows] = await User.update(
+        { passwordHash },
+        { ...options, where: { id: userId }, returning: true }
+    );
+
+    if (!updatedCount || !rows.length) {
+        return null;
+    }
+
+    return rows[0].get({ plain: true });
+}
+
 module.exports = {
     findUserByEmail,
     createUser,
@@ -79,4 +92,5 @@ module.exports = {
     linkGoogleAccount,
     updateUserRole,
     updateUserEmailVerifiedAt,
+    updateUserPasswordHash,
 };

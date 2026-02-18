@@ -1,7 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { addCartItem as addCartItemApi } from '../../lib/api/cart';
 import { ApiError } from '../../lib/api/client';
-import { listCatalogVariants, type CatalogVariant } from '../../lib/api/catalog';
+import {
+    listCatalogVariants,
+    type CatalogVariant,
+    type CatalogVariantsMeta,
+} from '../../lib/api/catalog';
 import { readGuestCart, writeGuestCart } from '../../lib/cart/guestCart';
 import { formatPrice, formatVariantTitle } from '../../lib/format';
 import Alert from '../ui/Alert';
@@ -11,10 +15,17 @@ const CATALOG_PAGE_SIZE = 9;
 
 type SortMode = 'popular' | 'price-asc' | 'price-desc' | 'stock-desc';
 
+type ShopQueryState = {
+    page: number;
+    category: string;
+    product: string;
+    minPrice: string;
+    maxPrice: string;
+};
+
 export type ShopCatalogInitialData = {
     variants: CatalogVariant[];
-    page: number;
-    totalPages: number;
+    meta: CatalogVariantsMeta;
 };
 
 type ShopPageProps = {
@@ -50,60 +61,174 @@ function sortVariants(items: CatalogVariant[], sortMode: SortMode) {
     return copy;
 }
 
+function parsePriceInput(value: string): number | null {
+    const normalized = String(value || '').trim();
+    if (!normalized) {
+        return null;
+    }
+
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+        return null;
+    }
+
+    return Number(parsed.toFixed(2));
+}
+
+function normalizePage(value: unknown, fallback = 1) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+        return fallback;
+    }
+
+    return Math.floor(parsed);
+}
+
+function normalizeMeta(meta: CatalogVariantsMeta | undefined, fallbackPage = 1): CatalogVariantsMeta {
+    const totalPages = Number(meta && meta.totalPages);
+    const normalizedTotalPages = Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1;
+
+    return {
+        total: Number(meta && meta.total) || 0,
+        page: normalizePage(meta && meta.page, fallbackPage),
+        pageSize: Number(meta && meta.pageSize) || CATALOG_PAGE_SIZE,
+        totalPages: normalizedTotalPages,
+        filters: meta && meta.filters ? meta.filters : undefined,
+    };
+}
+
+function toQueryState(meta: CatalogVariantsMeta | undefined): ShopQueryState {
+    const selected = meta && meta.filters ? meta.filters.selected : null;
+    return {
+        page: normalizePage(meta && meta.page, 1),
+        category: selected && selected.category ? selected.category : '',
+        product: selected && selected.product ? selected.product : '',
+        minPrice: selected && typeof selected.minPrice === 'number' ? String(selected.minPrice) : '',
+        maxPrice: selected && typeof selected.maxPrice === 'number' ? String(selected.maxPrice) : '',
+    };
+}
+
+function syncBrowserQuery(state: ShopQueryState) {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const params = new URLSearchParams();
+    if (state.page > 1) {
+        params.set('page', String(state.page));
+    }
+    if (state.category) {
+        params.set('category', state.category);
+    }
+    if (state.product) {
+        params.set('product', state.product);
+    }
+    if (state.minPrice) {
+        params.set('minPrice', state.minPrice);
+    }
+    if (state.maxPrice) {
+        params.set('maxPrice', state.maxPrice);
+    }
+
+    const next = params.toString() ? `/shop?${params.toString()}` : '/shop';
+    window.history.replaceState({}, '', next);
+}
+
 export default function ShopPage({ initialData = null }: ShopPageProps) {
     const initialCatalog = initialData && Array.isArray(initialData.variants)
         ? initialData
         : null;
 
+    const initialMeta = normalizeMeta(initialCatalog ? initialCatalog.meta : undefined, 1);
+    const initialQuery = toQueryState(initialCatalog ? initialCatalog.meta : undefined);
+
     const [status, setStatus] = useState<'idle' | 'loading'>('idle');
     const [error, setError] = useState('');
     const [variants, setVariants] = useState<CatalogVariant[]>(initialCatalog ? initialCatalog.variants : []);
-    const [page, setPage] = useState(initialCatalog ? Number(initialCatalog.page) || 1 : 1);
-    const [totalPages, setTotalPages] = useState(initialCatalog ? Number(initialCatalog.totalPages) || 1 : 1);
+    const [meta, setMeta] = useState<CatalogVariantsMeta>(initialMeta);
+    const [query, setQuery] = useState<ShopQueryState>(initialQuery);
     const [message, setMessage] = useState('');
     const [messageTone, setMessageTone] = useState<'info' | 'success' | 'error'>('info');
     const [sortMode, setSortMode] = useState<SortMode>('popular');
-    const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-    const categoryCounts = useMemo(() => {
-        const counts = new Map<string, { label: string; total: number }>();
-        for (const variant of variants) {
-            const slug = String(variant.category?.slug || 'misc');
-            const label = String(variant.category?.name || 'Otros');
-            const previous = counts.get(slug);
-            counts.set(slug, {
-                label,
-                total: (previous ? previous.total : 0) + 1,
-            });
+    const sortedVariants = useMemo(() => sortVariants(variants, sortMode), [sortMode, variants]);
+
+    const facetCategories = useMemo(() => {
+        const available = meta.filters && meta.filters.available ? meta.filters.available.categories : [];
+        return Array.isArray(available) ? available : [];
+    }, [meta.filters]);
+
+    const facetProducts = useMemo(() => {
+        const available = meta.filters && meta.filters.available ? meta.filters.available.products : [];
+        const list = Array.isArray(available) ? available : [];
+        if (!query.category) {
+            return list;
         }
-        return Array.from(counts.entries())
-            .map(([slug, info]) => ({ slug, ...info }))
-            .sort((a, b) => b.total - a.total);
-    }, [variants]);
 
-    const visibleVariants = useMemo(() => {
-        const filtered = selectedCategory === 'all'
-            ? variants
-            : variants.filter((variant) => String(variant.category?.slug || '') === selectedCategory);
-        return sortVariants(filtered, sortMode);
-    }, [selectedCategory, sortMode, variants]);
+        return list.filter((item) => item.categorySlug === query.category);
+    }, [meta.filters, query.category]);
 
-    async function loadVariants(nextPage: number) {
+    const priceBounds = useMemo(() => {
+        const min = meta.filters && meta.filters.available && meta.filters.available.priceRange
+            ? meta.filters.available.priceRange.min
+            : null;
+        const max = meta.filters && meta.filters.available && meta.filters.available.priceRange
+            ? meta.filters.available.priceRange.max
+            : null;
+
+        const normalizedMin = typeof min === 'number' ? min : 0;
+        const normalizedMax = typeof max === 'number' ? max : normalizedMin;
+
+        return {
+            min: normalizedMin,
+            max: normalizedMax >= normalizedMin ? normalizedMax : normalizedMin,
+        };
+    }, [meta.filters]);
+
+    async function loadVariants(nextState: Partial<ShopQueryState>, options: { resetPage?: boolean } = {}) {
+        const mergedState: ShopQueryState = {
+            ...query,
+            ...nextState,
+            page: options.resetPage
+                ? 1
+                : normalizePage(nextState.page !== undefined ? nextState.page : query.page, query.page),
+        };
+
+        const minPrice = parsePriceInput(mergedState.minPrice);
+        const maxPrice = parsePriceInput(mergedState.maxPrice);
+
         setStatus('loading');
         setError('');
         try {
-            const res = await listCatalogVariants(nextPage, CATALOG_PAGE_SIZE);
-            const nextVariants = Array.isArray(res.data) ? res.data : [];
-            setVariants(nextVariants);
-            setSelectedCategory('all');
+            const res = await listCatalogVariants({
+                page: mergedState.page,
+                pageSize: CATALOG_PAGE_SIZE,
+                category: mergedState.category || null,
+                product: mergedState.product || null,
+                minPrice,
+                maxPrice,
+                includeFacets: true,
+            });
 
-            const meta = res.meta || { page: nextPage, totalPages: 1 };
-            setPage(Number.isFinite(Number(meta.page)) ? Number(meta.page) : nextPage);
-            setTotalPages(
-                Number.isFinite(Number(meta.totalPages)) && Number(meta.totalPages) > 0
-                    ? Number(meta.totalPages)
-                    : 1
-            );
+            const nextVariants = Array.isArray(res.data) ? res.data : [];
+            const nextMeta = normalizeMeta(res.meta, mergedState.page);
+            const selected = nextMeta.filters ? nextMeta.filters.selected : null;
+            const nextQueryState: ShopQueryState = {
+                page: normalizePage(nextMeta.page, mergedState.page),
+                category: selected && selected.category ? selected.category : mergedState.category,
+                product: selected && selected.product ? selected.product : mergedState.product,
+                minPrice: selected && typeof selected.minPrice === 'number'
+                    ? String(selected.minPrice)
+                    : (minPrice === null ? '' : String(minPrice)),
+                maxPrice: selected && typeof selected.maxPrice === 'number'
+                    ? String(selected.maxPrice)
+                    : (maxPrice === null ? '' : String(maxPrice)),
+            };
+
+            setVariants(nextVariants);
+            setMeta(nextMeta);
+            setQuery(nextQueryState);
+            syncBrowserQuery(nextQueryState);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'No se pudo cargar el catalogo.');
         } finally {
@@ -152,7 +277,7 @@ export default function ShopPage({ initialData = null }: ShopPageProps) {
 
     React.useEffect(() => {
         if (!initialCatalog) {
-            loadVariants(1);
+            loadVariants({ page: 1 });
         }
     }, [initialCatalog]);
 
@@ -185,33 +310,118 @@ export default function ShopPage({ initialData = null }: ShopPageProps) {
 
             <div className="shop-shell__layout">
                 <aside className="panel-card shop-filters" aria-label="Filtros de tienda">
-                    <h2>Especies</h2>
+                    <h2>Categoría</h2>
                     <button
                         type="button"
-                        className={`chip ${selectedCategory === 'all' ? 'chip--active' : ''}`}
-                        onClick={() => setSelectedCategory('all')}
+                        className={`chip ${query.category === '' ? 'chip--active' : ''}`}
+                        onClick={() => loadVariants({ category: '', product: '' }, { resetPage: true })}
                     >
-                        Todos ({variants.length})
+                        Todas
                     </button>
-                    {categoryCounts.map((category) => (
+                    {facetCategories.map((category) => (
                         <button
                             key={category.slug}
                             type="button"
-                            className={`chip ${selectedCategory === category.slug ? 'chip--active' : ''}`}
-                            onClick={() => setSelectedCategory(category.slug)}
+                            className={`chip ${query.category === category.slug ? 'chip--active' : ''}`}
+                            onClick={() => loadVariants({ category: category.slug, product: '' }, { resetPage: true })}
                         >
-                            {category.label} ({category.total})
+                            {category.name} ({category.total})
                         </button>
                     ))}
+
+                    <h2>Producto</h2>
+                    <label className="field shop-filters__field">
+                        <span className="field__label">Selecciona un producto</span>
+                        <select
+                            className="field__input"
+                            value={query.product}
+                            onChange={(event) => loadVariants({ product: event.target.value }, { resetPage: true })}
+                        >
+                            <option value="">Todos</option>
+                            {facetProducts.map((product) => (
+                                <option key={product.slug} value={product.slug}>
+                                    {product.name} ({product.total})
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <h2>Rango de precio</h2>
+                    <div className="shop-filters__price">
+                        <label className="field shop-filters__field">
+                            <span className="field__label">Mínimo (S/)</span>
+                            <input
+                                className="field__input"
+                                type="number"
+                                min={priceBounds.min}
+                                max={priceBounds.max}
+                                step="0.5"
+                                value={query.minPrice}
+                                onChange={(event) => setQuery((prev) => ({ ...prev, minPrice: event.target.value }))}
+                            />
+                        </label>
+                        <label className="field shop-filters__field">
+                            <span className="field__label">Máximo (S/)</span>
+                            <input
+                                className="field__input"
+                                type="number"
+                                min={priceBounds.min}
+                                max={priceBounds.max}
+                                step="0.5"
+                                value={query.maxPrice}
+                                onChange={(event) => setQuery((prev) => ({ ...prev, maxPrice: event.target.value }))}
+                            />
+                        </label>
+                    </div>
+                    <div className="shop-filters__price-range">
+                        <input
+                            type="range"
+                            min={priceBounds.min}
+                            max={priceBounds.max || priceBounds.min}
+                            step="0.5"
+                            value={query.minPrice || String(priceBounds.min)}
+                            onChange={(event) => setQuery((prev) => ({ ...prev, minPrice: event.target.value }))}
+                        />
+                        <input
+                            type="range"
+                            min={priceBounds.min}
+                            max={priceBounds.max || priceBounds.min}
+                            step="0.5"
+                            value={query.maxPrice || String(priceBounds.max)}
+                            onChange={(event) => setQuery((prev) => ({ ...prev, maxPrice: event.target.value }))}
+                        />
+                    </div>
+                    <div className="shop-filters__actions">
+                        <Button type="button" variant="primary" onClick={() => loadVariants({}, { resetPage: true })}>
+                            Aplicar precio
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => {
+                                const cleared: ShopQueryState = {
+                                    ...query,
+                                    category: '',
+                                    product: '',
+                                    minPrice: '',
+                                    maxPrice: '',
+                                };
+                                setQuery(cleared);
+                                void loadVariants(cleared, { resetPage: true });
+                            }}
+                        >
+                            Limpiar filtros
+                        </Button>
+                    </div>
                 </aside>
 
                 <div className="shop-shell__products">
-                    {status === 'idle' && !visibleVariants.length ? (
+                    {status === 'idle' && !sortedVariants.length ? (
                         <p className="status">No hay productos para este filtro.</p>
                     ) : null}
 
                     <div className="grid grid--cards catalog">
-                        {visibleVariants.map((variant, index) => (
+                        {sortedVariants.map((variant, index) => (
                             <article className="card storefront-card" key={variant.sku}>
                                 <div className="card__thumb storefront-card__thumb">
                                     <img
@@ -240,24 +450,24 @@ export default function ShopPage({ initialData = null }: ShopPageProps) {
                         ))}
                     </div>
 
-                    {totalPages > 1 ? (
+                    {meta.totalPages > 1 ? (
                         <div className="pagination">
                             <Button
                                 type="button"
                                 variant="ghost"
-                                onClick={() => loadVariants(page - 1)}
-                                disabled={page <= 1 || status === 'loading'}
+                                onClick={() => loadVariants({ page: query.page - 1 })}
+                                disabled={query.page <= 1 || status === 'loading'}
                             >
                                 Anterior
                             </Button>
                             <span className="pagination__info">
-                                Pagina {page} de {totalPages}
+                                Pagina {query.page} de {meta.totalPages}
                             </span>
                             <Button
                                 type="button"
                                 variant="ghost"
-                                onClick={() => loadVariants(page + 1)}
-                                disabled={page >= totalPages || status === 'loading'}
+                                onClick={() => loadVariants({ page: query.page + 1 })}
+                                disabled={query.page >= meta.totalPages || status === 'loading'}
                             >
                                 Siguiente
                             </Button>

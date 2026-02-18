@@ -40,12 +40,19 @@ Rutas principales (paridad con el frontend anterior):
 - `/products/[slug]` detalle publico por producto (admite `?sku=<sku>`)
 - `/admin` consola admin (guard client-side por sesion+rol)
 - `/login`
+- `/forgot-password`
+- `/reset-password`
 - `/register`
 - `/verify`
 - `/admin-2fa`
 - `/profile`
 - `/cart`
 - `/orders`
+
+Header publico sensible a sesion:
+- Guest: `Login`, `Crear cuenta`
+- Autenticado: `Perfil`, `Cerrar sesión`
+- Sin enlace `/admin` en navegacion storefront
 
 ### Decoracion dinamica en Home
 
@@ -141,6 +148,8 @@ Catalogo
 - [ ] `/products/<slug>` carga detalle (galeria, precio, stock, descripcion)
 - [ ] cambiar variante actualiza `?sku=` y recarga detalle de variante
 - [ ] agregar al carrito como guest (se refleja en `/cart`)
+- [ ] `/shop` filtra globalmente por categoria/producto/precio usando metadatos de facetas del backend
+- [ ] `/shop` mantiene filtros activos al cambiar de pagina
 
 Admin
 - [ ] `/admin` bloquea usuarios no autenticados/no-admin
@@ -162,6 +171,8 @@ Auth
 - [ ] `/register` -> redirige a `/verify`
 - [ ] `/verify` verifica con codigo 6 digitos y redirige a `/profile`
 - [ ] `/login` login ok -> `/profile`
+- [ ] `/forgot-password` envia solicitud con mensaje generico no-enumerativo
+- [ ] `/reset-password?token=...` permite actualizar contraseña y volver a login
 - [ ] login con email no verificado -> `/verify`
 - [ ] login admin -> `/admin-2fa`
 - [ ] "Continuar con Google" inicia OAuth y vuelve a `/login` (sin `#token=...`; el frontend valida sesion via cookies)

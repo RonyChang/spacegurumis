@@ -7,6 +7,8 @@ const {
     verifyEmail,
     verifyAdminTwoFactor,
     resendVerification,
+    forgotPassword,
+    resetPassword,
     googleStart,
     googleCallback,
     logout,
@@ -45,11 +47,23 @@ const refreshLimiter = createRateLimiter({
     max: security.rateLimit.refreshMax,
     keyPrefix: 'auth:refresh',
 });
+const forgotPasswordLimiter = createRateLimiter({
+    windowMs: security.rateLimit.windowMs,
+    max: security.rateLimit.forgotPasswordMax,
+    keyPrefix: 'auth:forgot-password',
+});
+const resetPasswordLimiter = createRateLimiter({
+    windowMs: security.rateLimit.windowMs,
+    max: security.rateLimit.resetPasswordMax,
+    keyPrefix: 'auth:reset-password',
+});
 
 router.post('/api/v1/auth/register', registerLimiter, register);
 router.post('/api/v1/auth/login', loginLimiter, login);
 router.post('/api/v1/auth/verify-email', verifyEmailLimiter, verifyEmail);
 router.post('/api/v1/auth/resend-verification', resendLimiter, resendVerification);
+router.post('/api/v1/auth/password/forgot', forgotPasswordLimiter, forgotPassword);
+router.post('/api/v1/auth/password/reset', resetPasswordLimiter, resetPassword);
 router.post('/api/v1/auth/admin/verify-2fa', admin2faLimiter, verifyAdminTwoFactor);
 router.get('/api/v1/auth/google', googleStart);
 router.get('/api/v1/auth/google/callback', googleCallback);

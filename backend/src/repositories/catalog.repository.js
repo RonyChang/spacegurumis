@@ -58,12 +58,128 @@ function buildVariantFilters(filters) {
     }
 
     const productWhere = { isActive: true };
+    if (filters.product) {
+        productWhere.slug = filters.product;
+    }
     const categoryWhere = filters.category ? { slug: filters.category } : null;
 
     return {
         variantWhere,
         productWhere,
         categoryWhere,
+    };
+}
+
+async function fetchVariantFacetSnapshot(filters) {
+    const { variantWhere, productWhere, categoryWhere } = buildVariantFilters(filters);
+    const categoryInclude = {
+        model: Category,
+        as: 'category',
+        attributes: ['id', 'name', 'slug'],
+        required: true,
+    };
+
+    if (categoryWhere) {
+        categoryInclude.where = categoryWhere;
+    }
+
+    const rows = await ProductVariant.findAll({
+        where: variantWhere,
+        include: [
+            {
+                model: Product,
+                as: 'product',
+                attributes: ['id', 'name', 'slug'],
+                where: productWhere,
+                required: true,
+                include: [categoryInclude],
+            },
+        ],
+        attributes: ['id', 'priceCents'],
+        subQuery: false,
+    });
+
+    return rows.map((row) => ({
+        id: row.id,
+        priceCents: row.priceCents,
+        productId: row.product ? row.product.id : null,
+        productName: row.product ? row.product.name : null,
+        productSlug: row.product ? row.product.slug : null,
+        categoryId: row.product && row.product.category ? row.product.category.id : null,
+        categoryName: row.product && row.product.category ? row.product.category.name : null,
+        categorySlug: row.product && row.product.category ? row.product.category.slug : null,
+    }));
+}
+
+async function fetchVariantFacetCategories(filters) {
+    const snapshot = await fetchVariantFacetSnapshot(filters);
+    const totalsBySlug = new Map();
+
+    for (const row of snapshot) {
+        const slug = row.categorySlug ? String(row.categorySlug) : '';
+        if (!slug) {
+            continue;
+        }
+
+        const current = totalsBySlug.get(slug) || {
+            slug,
+            name: row.categoryName || slug,
+            total: 0,
+        };
+        current.total += 1;
+        totalsBySlug.set(slug, current);
+    }
+
+    return Array.from(totalsBySlug.values());
+}
+
+async function fetchVariantFacetProducts(filters) {
+    const snapshot = await fetchVariantFacetSnapshot(filters);
+    const totalsBySlug = new Map();
+
+    for (const row of snapshot) {
+        const slug = row.productSlug ? String(row.productSlug) : '';
+        if (!slug) {
+            continue;
+        }
+
+        const current = totalsBySlug.get(slug) || {
+            slug,
+            name: row.productName || slug,
+            categorySlug: row.categorySlug || null,
+            total: 0,
+        };
+        current.total += 1;
+        totalsBySlug.set(slug, current);
+    }
+
+    return Array.from(totalsBySlug.values());
+}
+
+async function fetchVariantFacetPriceRange(filters) {
+    const snapshot = await fetchVariantFacetSnapshot(filters);
+    if (!snapshot.length) {
+        return {
+            minPriceCents: null,
+            maxPriceCents: null,
+        };
+    }
+
+    let minPriceCents = null;
+    let maxPriceCents = null;
+    for (const row of snapshot) {
+        const price = Number(row.priceCents);
+        if (!Number.isFinite(price)) {
+            continue;
+        }
+
+        minPriceCents = minPriceCents === null ? price : Math.min(minPriceCents, price);
+        maxPriceCents = maxPriceCents === null ? price : Math.max(maxPriceCents, price);
+    }
+
+    return {
+        minPriceCents,
+        maxPriceCents,
     };
 }
 
@@ -377,6 +493,9 @@ module.exports = {
     fetchActiveProductsCount,
     fetchActiveVariants,
     fetchActiveVariantsCount,
+    fetchVariantFacetCategories,
+    fetchVariantFacetProducts,
+    fetchVariantFacetPriceRange,
     fetchProductBySlug,
     fetchVariantBySku,
     fetchProductVariants,

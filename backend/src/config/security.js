@@ -1,4 +1,10 @@
-const { nodeEnv, csrfAllowedOrigins: validatedCsrfAllowedOrigins } = require('./index');
+const {
+    nodeEnv,
+    csrfAllowedOrigins: validatedCsrfAllowedOrigins,
+    passwordResetTtlMinutes,
+    passwordResetRequestCooldownSeconds,
+    passwordResetUrlPath,
+} = require('./index');
 const { parseBoolean, parsePositiveInt } = require('../utils/env');
 const { parseJwtExpiresInToMs } = require('../utils/jwt');
 
@@ -45,6 +51,14 @@ const rateLimit = {
     resendMax: parsePositiveInt(process.env.AUTH_RATE_LIMIT_RESEND_MAX, 5),
     admin2faMax: parsePositiveInt(process.env.AUTH_RATE_LIMIT_ADMIN_2FA_MAX, 10),
     refreshMax: parsePositiveInt(process.env.AUTH_RATE_LIMIT_REFRESH_MAX, 20),
+    forgotPasswordMax: parsePositiveInt(process.env.AUTH_RATE_LIMIT_FORGOT_PASSWORD_MAX, 5),
+    resetPasswordMax: parsePositiveInt(process.env.AUTH_RATE_LIMIT_RESET_PASSWORD_MAX, 10),
+};
+
+const passwordReset = {
+    ttlMinutes: parsePositiveInt(passwordResetTtlMinutes, 30),
+    requestCooldownSeconds: parsePositiveInt(passwordResetRequestCooldownSeconds, 60),
+    urlPath: (passwordResetUrlPath || '/reset-password').trim() || '/reset-password',
 };
 
 module.exports = {
@@ -67,4 +81,5 @@ module.exports = {
         requireToken: csrfRequireToken,
     },
     rateLimit,
+    passwordReset,
 };

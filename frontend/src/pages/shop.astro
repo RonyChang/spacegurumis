@@ -2,25 +2,59 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import ShopPage, { type ShopCatalogInitialData } from '../components/pages/ShopPage';
 import { serverApiGet } from '../lib/api/server';
-import { type CatalogVariant, type PaginationMeta } from '../lib/api/catalog';
+import { type CatalogVariant, type CatalogVariantsMeta } from '../lib/api/catalog';
 
 const CATALOG_PAGE_SIZE = 9;
 
 let initialData: ShopCatalogInitialData | null = null;
 
-try {
-    const catalogResponse = await serverApiGet<CatalogVariant[], PaginationMeta>(
-        Astro.url,
-        `/api/v1/catalog/variants?page=1&pageSize=${CATALOG_PAGE_SIZE}`
-    );
+const pageRaw = Number(Astro.url.searchParams.get('page') || '1');
+const categoryRaw = Astro.url.searchParams.get('category');
+const productRaw = Astro.url.searchParams.get('product');
+const minPriceRaw = Astro.url.searchParams.get('minPrice');
+const maxPriceRaw = Astro.url.searchParams.get('maxPrice');
 
-    const page = Number(catalogResponse.meta?.page);
-    const totalPages = Number(catalogResponse.meta?.totalPages);
+const safePage = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
+const category = categoryRaw ? categoryRaw.trim() : '';
+const product = productRaw ? productRaw.trim() : '';
+
+const parsedMinPrice = minPriceRaw ? Number(minPriceRaw) : NaN;
+const parsedMaxPrice = maxPriceRaw ? Number(maxPriceRaw) : NaN;
+const minPrice = Number.isFinite(parsedMinPrice) && parsedMinPrice >= 0 ? parsedMinPrice : null;
+const maxPrice = Number.isFinite(parsedMaxPrice) && parsedMaxPrice >= 0 ? parsedMaxPrice : null;
+
+try {
+    const params = new URLSearchParams({
+        page: String(safePage),
+        pageSize: String(CATALOG_PAGE_SIZE),
+        includeFacets: 'true',
+    });
+    if (category) {
+        params.set('category', category);
+    }
+    if (product) {
+        params.set('product', product);
+    }
+    if (minPrice !== null) {
+        params.set('minPrice', String(minPrice));
+    }
+    if (maxPrice !== null) {
+        params.set('maxPrice', String(maxPrice));
+    }
+
+    const catalogResponse = await serverApiGet<CatalogVariant[], CatalogVariantsMeta>(
+        Astro.url,
+        `/api/v1/catalog/variants?${params.toString()}`
+    );
 
     initialData = {
         variants: Array.isArray(catalogResponse.data) ? catalogResponse.data : [],
-        page: Number.isFinite(page) && page > 0 ? page : 1,
-        totalPages: Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
+        meta: catalogResponse.meta || {
+            total: 0,
+            page: safePage,
+            pageSize: CATALOG_PAGE_SIZE,
+            totalPages: 1,
+        },
     };
 } catch {
     initialData = null;

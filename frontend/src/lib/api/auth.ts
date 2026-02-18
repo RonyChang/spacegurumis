@@ -51,6 +51,14 @@ export function logout() {
     return apiPost<{ ok: true }>('/api/v1/auth/logout', {});
 }
 
+export function forgotPassword(email: string) {
+    return apiPost<{ accepted: true }>('/api/v1/auth/password/forgot', { email });
+}
+
+export function resetPassword(token: string, newPassword: string) {
+    return apiPost<{ reset: true }>('/api/v1/auth/password/reset', { token, newPassword });
+}
+
 export function buildGoogleStartUrl() {
     return buildApiUrl('/api/v1/auth/google');
 }

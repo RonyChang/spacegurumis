@@ -221,6 +221,19 @@ h3 {
     border-radius: 999px;
 }
 
+.nav__button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.nav__button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
 .nav__link:hover {
     background: rgba(139, 92, 246, 0.12);
     text-decoration: none;
@@ -651,6 +664,15 @@ h3 {
     align-items: center;
 }
 
+.auth__aux-link {
+    margin-top: -2px;
+}
+
+.auth__aux-link a {
+    color: #6d28d9;
+    font-weight: 700;
+}
+
 .profile__meta {
     display: flex;
     justify-content: space-between;
@@ -1051,7 +1073,33 @@ h3 {
 }
 
 .shop-filters h2 {
-    margin: 0 0 4px;
+    margin: 6px 0 4px;
+    font-size: 16px;
+}
+
+.shop-filters__field {
+    gap: 4px;
+}
+
+.shop-filters__price {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.shop-filters__price-range {
+    display: grid;
+    gap: 6px;
+}
+
+.shop-filters__price-range input[type='range'] {
+    width: 100%;
+}
+
+.shop-filters__actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
 }
 
 .chip {
@@ -1147,6 +1195,10 @@ h3 {
     }
 
     .shop-shell__layout {
+        grid-template-columns: 1fr;
+    }
+
+    .shop-filters__price {
         grid-template-columns: 1fr;
     }
 

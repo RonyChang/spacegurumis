@@ -1,9 +1,15 @@
+const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
-const { integrations } = require('../config');
+const { integrations, frontendBaseUrl } = require('../config');
+const { sequelize } = require('../models');
+const security = require('../config/security');
 const authRepository = require('../repositories/auth.repository');
+const passwordResetRepository = require('../repositories/passwordReset.repository');
 const adminTwoFactorService = require('./adminTwoFactor.service');
 const emailVerificationService = require('./emailVerification.service');
+const { buildPasswordResetEmailText } = require('./passwordResetEmail.service');
+const resendClient = require('./resendClient.service');
 
 function createError(status, message) {
     const error = new Error(message);
@@ -17,6 +23,10 @@ function normalizeEmail(email) {
 
 function normalizeName(value) {
     return value.trim();
+}
+
+function isStrongEnoughPassword(password) {
+    return typeof password === 'string' && password.trim().length >= 6;
 }
 
 function normalizeOptionalName(value, fallback) {
@@ -36,6 +46,23 @@ function buildUserResponse(user) {
         avatarUrl: user.avatarUrl || null,
         role: user.role,
     };
+}
+
+function hashPasswordResetToken(token) {
+    return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function buildPasswordResetLink(rawToken) {
+    if (!frontendBaseUrl) {
+        return null;
+    }
+
+    const path = security.passwordReset && security.passwordReset.urlPath
+        ? security.passwordReset.urlPath
+        : '/reset-password';
+    const url = new URL(path, frontendBaseUrl);
+    url.searchParams.set('token', rawToken);
+    return url.toString();
 }
 
 function getGoogleConfig() {
@@ -251,6 +278,98 @@ async function loginWithGoogle(code) {
     };
 }
 
+async function requestPasswordReset({ email }) {
+    const normalizedEmail = normalizeEmail(email);
+    const genericResponse = { accepted: true };
+    const user = await authRepository.findUserByEmail(normalizedEmail);
+    if (!user || !user.emailVerifiedAt) {
+        return genericResponse;
+    }
+
+    const latest = await passwordResetRepository.findLatestByUserId(user.id);
+    if (latest) {
+        const createdAt = new Date(latest.createdAt || latest.created_at);
+        if (!Number.isNaN(createdAt.getTime())) {
+            const cooldownMs = security.passwordReset.requestCooldownSeconds * 1000;
+            if ((Date.now() - createdAt.getTime()) < cooldownMs) {
+                return genericResponse;
+            }
+        }
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const tokenHash = hashPasswordResetToken(token);
+    const expiresAt = new Date(Date.now() + security.passwordReset.ttlMinutes * 60 * 1000);
+
+    await passwordResetRepository.createToken({
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+    });
+
+    const resetLink = buildPasswordResetLink(token);
+    const ttlMinutes = security.passwordReset.ttlMinutes;
+    const plainTextBody = buildPasswordResetEmailText({
+        resetLink,
+        token,
+        ttlMinutes,
+    });
+
+    try {
+        await resendClient.sendEmail({
+            to: user.email,
+            subject: 'Recuperación de contraseña',
+            text: plainTextBody,
+        });
+    } catch (error) {
+        // El endpoint forgot debe permanecer no enumerativo aun si el proveedor de correo falla.
+        console.error('Password reset email error:', error && error.message ? error.message : error);
+    }
+
+    return genericResponse;
+}
+
+async function resetPassword({ token, newPassword }) {
+    if (!isStrongEnoughPassword(newPassword)) {
+        throw createError(400, 'Contraseña mínima de 6 caracteres');
+    }
+
+    const tokenHash = hashPasswordResetToken(token);
+    const now = new Date();
+
+    return sequelize.transaction(async (transaction) => {
+        const activeToken = await passwordResetRepository.findActiveByTokenHash(tokenHash, {
+            transaction,
+            lock: transaction.LOCK.UPDATE,
+        });
+        if (!activeToken) {
+            throw createError(400, 'Token inválido o expirado');
+        }
+
+        const passwordHash = await bcrypt.hash(newPassword, 10);
+        const updatedUser = await authRepository.updateUserPasswordHash(
+            activeToken.userId,
+            passwordHash,
+            { transaction }
+        );
+        if (!updatedUser) {
+            throw createError(404, 'Usuario no encontrado');
+        }
+
+        const consumed = await passwordResetRepository.consumeToken(activeToken.id, now, { transaction });
+        if (!consumed) {
+            throw createError(400, 'Token inválido o expirado');
+        }
+
+        await passwordResetRepository.invalidateActiveTokensByUserId(activeToken.userId, now, {
+            transaction,
+            excludeId: activeToken.id,
+        });
+
+        return { reset: true };
+    });
+}
+
 async function verifyAdminTwoFactor({ email, code }) {
     const normalizedEmail = normalizeEmail(email);
     const user = await authRepository.findUserByEmail(normalizedEmail);
@@ -337,9 +456,9 @@ module.exports = {
     verifyAdminTwoFactor,
     resendVerification,
     verifyEmail,
+    requestPasswordReset,
+    resetPassword,
 };
-
-
 
 
 

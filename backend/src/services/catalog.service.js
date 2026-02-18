@@ -53,7 +53,54 @@ async function listProducts(filters, pagination) {
     };
 }
 
-async function listVariants(filters, pagination) {
+function normalizeFacetTotal(value) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function buildSelectedFilters(filters) {
+    return {
+        category: filters.category || null,
+        product: filters.product || null,
+        minPrice: typeof filters.minPrice === 'number' ? centsToSoles(filters.minPrice) : null,
+        maxPrice: typeof filters.maxPrice === 'number' ? centsToSoles(filters.maxPrice) : null,
+    };
+}
+
+function buildFacetMeta(facets, filters) {
+    const categories = Array.isArray(facets.categories) ? facets.categories : [];
+    const products = Array.isArray(facets.products) ? facets.products : [];
+    const priceRange = facets.priceRange || { minPriceCents: null, maxPriceCents: null };
+
+    return {
+        selected: buildSelectedFilters(filters),
+        available: {
+            categories: categories
+                .map((item) => ({
+                    slug: item.slug,
+                    name: item.name,
+                    total: normalizeFacetTotal(item.total),
+                }))
+                .filter((item) => item.slug && item.name)
+                .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)),
+            products: products
+                .map((item) => ({
+                    slug: item.slug,
+                    name: item.name,
+                    categorySlug: item.categorySlug || null,
+                    total: normalizeFacetTotal(item.total),
+                }))
+                .filter((item) => item.slug && item.name)
+                .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name)),
+            priceRange: {
+                min: centsToSoles(priceRange.minPriceCents),
+                max: centsToSoles(priceRange.maxPriceCents),
+            },
+        },
+    };
+}
+
+async function listVariants(filters, pagination, options = {}) {
     const [rows, total] = await Promise.all([
         catalogRepository.fetchActiveVariants(filters, pagination),
         catalogRepository.fetchActiveVariantsCount(filters),
@@ -82,15 +129,37 @@ async function listVariants(filters, pagination) {
     });
 
     const totalPages = total === 0 ? 0 : Math.ceil(total / pagination.pageSize);
+    const meta = {
+        total,
+        page: pagination.page,
+        pageSize: pagination.pageSize,
+        totalPages,
+    };
+
+    if (options.includeFacets) {
+        const [categories, products, priceRange] = await Promise.all([
+            catalogRepository.fetchVariantFacetCategories({
+                ...filters,
+                category: null,
+                product: null,
+            }),
+            catalogRepository.fetchVariantFacetProducts({
+                ...filters,
+                product: null,
+            }),
+            catalogRepository.fetchVariantFacetPriceRange({
+                ...filters,
+                minPrice: null,
+                maxPrice: null,
+            }),
+        ]);
+
+        meta.filters = buildFacetMeta({ categories, products, priceRange }, filters);
+    }
 
     return {
         items,
-        meta: {
-            total,
-            page: pagination.page,
-            pageSize: pagination.pageSize,
-            totalPages,
-        },
+        meta,
     };
 }
 

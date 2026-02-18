@@ -26,6 +26,9 @@ test('buildRuntimeConfig returns normalized config for valid env', () => {
     assert.deepEqual(config.corsAllowedOrigins, ['http://localhost:4321', 'https://spacegurumis.lat']);
     assert.deepEqual(config.csrfAllowedOrigins, ['http://localhost:4321', 'https://spacegurumis.lat']);
     assert.equal(config.frontendBaseUrl, 'https://spacegurumis.lat');
+    assert.equal(config.passwordResetTtlMinutes, 30);
+    assert.equal(config.passwordResetRequestCooldownSeconds, 60);
+    assert.equal(config.passwordResetUrlPath, '/reset-password');
 });
 
 test('buildRuntimeConfig fails when a required variable is missing', () => {
@@ -95,5 +98,35 @@ test('buildRuntimeConfig fails when FRONTEND_BASE_URL is malformed', () => {
     assert.throws(
         () => buildRuntimeConfig(env),
         /FRONTEND_BASE_URL: URL invalida/
+    );
+});
+
+test('buildRuntimeConfig fails when PASSWORD_RESET_TTL_MINUTES is invalid', () => {
+    const env = buildBaseEnv();
+    env.PASSWORD_RESET_TTL_MINUTES = '0';
+
+    assert.throws(
+        () => buildRuntimeConfig(env),
+        /PASSWORD_RESET_TTL_MINUTES: debe ser un entero positivo/
+    );
+});
+
+test('buildRuntimeConfig fails when PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS is invalid', () => {
+    const env = buildBaseEnv();
+    env.PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS = '-1';
+
+    assert.throws(
+        () => buildRuntimeConfig(env),
+        /PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS: debe ser un entero positivo/
+    );
+});
+
+test('buildRuntimeConfig fails when PASSWORD_RESET_URL_PATH does not start with slash', () => {
+    const env = buildBaseEnv();
+    env.PASSWORD_RESET_URL_PATH = 'reset-password';
+
+    assert.throws(
+        () => buildRuntimeConfig(env),
+        /PASSWORD_RESET_URL_PATH: debe empezar con "\/"/
     );
 });

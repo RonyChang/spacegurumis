@@ -117,6 +117,40 @@ const EmailVerification = sequelize.define('EmailVerification', {
     updatedAt: false,
 });
 
+const PasswordResetToken = sequelize.define('PasswordResetToken', {
+    id: {
+        type: DataTypes.BIGINT,
+        primaryKey: true,
+        autoIncrement: true,
+    },
+    userId: {
+        type: DataTypes.BIGINT,
+        allowNull: false,
+        field: 'user_id',
+    },
+    tokenHash: {
+        type: DataTypes.TEXT,
+        allowNull: false,
+        unique: true,
+        field: 'token_hash',
+    },
+    expiresAt: {
+        type: DataTypes.DATE,
+        allowNull: false,
+        field: 'expires_at',
+    },
+    usedAt: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        field: 'used_at',
+    },
+}, {
+    tableName: 'password_reset_tokens',
+    timestamps: true,
+    createdAt: 'created_at',
+    updatedAt: 'updated_at',
+});
+
 const UserAddress = sequelize.define('UserAddress', {
     id: {
         type: DataTypes.BIGINT,
@@ -698,6 +732,9 @@ AdminTwoFactorChallenge.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(EmailVerification, { foreignKey: 'userId', as: 'emailVerifications' });
 EmailVerification.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+User.hasMany(PasswordResetToken, { foreignKey: 'userId', as: 'passwordResetTokens' });
+PasswordResetToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 User.hasOne(Cart, { foreignKey: 'userId', as: 'cart' });
 Cart.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
@@ -745,6 +782,7 @@ module.exports = {
     User,
     AdminTwoFactorChallenge,
     EmailVerification,
+    PasswordResetToken,
     UserAddress,
     Category,
     CategoryImage,

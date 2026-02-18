@@ -87,6 +87,29 @@ function parseOptionalFrontendBaseUrl(rawEnv) {
     return normalizeOrigin(value);
 }
 
+function parseOptionalPositiveInt(rawEnv, variableName, fallback) {
+    const rawValue = readOptional(rawEnv, variableName, '');
+    if (!rawValue) {
+        return fallback;
+    }
+
+    const parsed = Number(rawValue);
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+        throw createEnvError(variableName, 'debe ser un entero positivo');
+    }
+
+    return parsed;
+}
+
+function parseOptionalResetPath(rawEnv) {
+    const resetPath = readOptional(rawEnv, 'PASSWORD_RESET_URL_PATH', '/reset-password');
+    if (!resetPath.startsWith('/')) {
+        throw createEnvError('PASSWORD_RESET_URL_PATH', 'debe empezar con "/"');
+    }
+
+    return resetPath;
+}
+
 function normalizeBaseUrl(value) {
     const raw = String(value || '').trim();
     if (!raw) {
@@ -137,6 +160,13 @@ function buildRuntimeConfig(rawEnv = process.env) {
         databaseUrl: parseRequiredDatabaseUrl(rawEnv),
         jwtSecret: readRequired(rawEnv, 'JWT_SECRET'),
         frontendBaseUrl: parseOptionalFrontendBaseUrl(rawEnv),
+        passwordResetTtlMinutes: parseOptionalPositiveInt(rawEnv, 'PASSWORD_RESET_TTL_MINUTES', 30),
+        passwordResetRequestCooldownSeconds: parseOptionalPositiveInt(
+            rawEnv,
+            'PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS',
+            60
+        ),
+        passwordResetUrlPath: parseOptionalResetPath(rawEnv),
         corsAllowedOrigins: parseRequiredOrigins(rawEnv, 'CORS_ALLOWED_ORIGINS'),
         csrfAllowedOrigins: parseRequiredOrigins(rawEnv, 'CSRF_ALLOWED_ORIGINS'),
     };

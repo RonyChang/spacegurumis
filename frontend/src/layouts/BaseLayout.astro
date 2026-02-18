@@ -1,6 +1,8 @@
 ---
 import '../styles/fonts.css';
 import '../styles/global.css';
+import PublicNavigation from '../components/layout/PublicNavigation';
+import { buildServerApiUrl } from '../lib/api/server';
 
 type Props = {
     title?: string;
@@ -21,6 +23,29 @@ const inferredNavigationMode =
         : 'public';
 const resolvedNavigationMode =
     navigationMode === 'auto' ? inferredNavigationMode : navigationMode;
+
+let initialPublicAuthenticated = false;
+if (resolvedNavigationMode === 'public') {
+    const cookieHeader = Astro.request.headers.get('cookie');
+    if (cookieHeader) {
+        try {
+            const profileUrl = buildServerApiUrl(Astro.url, '/api/v1/profile');
+            const profileOrigin = new URL(profileUrl).origin;
+            if (profileOrigin === Astro.url.origin) {
+                const response = await fetch(profileUrl, {
+                    method: 'GET',
+                    headers: {
+                        Accept: 'application/json',
+                        Cookie: cookieHeader,
+                    },
+                });
+                initialPublicAuthenticated = response.ok;
+            }
+        } catch {
+            initialPublicAuthenticated = false;
+        }
+    }
+}
 ---
 
 <!doctype html>
@@ -46,15 +71,10 @@ const resolvedNavigationMode =
 
                 {
                     resolvedNavigationMode === 'public' ? (
-                        <nav class="nav" aria-label="Navegacion principal">
-                            <a class="nav__link" href="/" data-nav-prefetch>Inicio</a>
-                            <a class="nav__link" href="/shop" data-nav-prefetch>Tienda</a>
-                            <a class="nav__link" href="/cart" data-nav-prefetch>Carrito</a>
-                            <a class="nav__link" href="/orders" data-nav-prefetch>Mis pedidos</a>
-                            <a class="nav__link" href="/profile" data-nav-prefetch>Perfil</a>
-                            <a class="nav__link" href="/login" data-nav-prefetch>Login</a>
-                            <a class="nav__link nav__link--cta" href="/register" data-nav-prefetch>Crear cuenta</a>
-                        </nav>
+                        <PublicNavigation
+                            client:load
+                            initialAuthenticated={initialPublicAuthenticated}
+                        />
                     ) : null
                 }
 

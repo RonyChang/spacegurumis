@@ -4,6 +4,19 @@ function getSingleValue(value) {
     return Array.isArray(value) ? value[0] : value;
 }
 
+function parseBooleanFlag(value, fallback = false) {
+    if (value === undefined || value === null) {
+        return fallback;
+    }
+
+    const normalized = String(value).trim().toLowerCase();
+    if (!normalized) {
+        return fallback;
+    }
+
+    return normalized === 'true' || normalized === '1' || normalized === 'yes' || normalized === 'on';
+}
+
 function parseListParams(req) {
     // Normaliza query params y aplica valores por defecto.
     const rawPage = getSingleValue(req.query.page);
@@ -16,11 +29,14 @@ function parseListParams(req) {
     const pageSize = Number.isNaN(parsedPageSize) || parsedPageSize < 1 ? 12 : parsedPageSize;
 
     const rawCategory = getSingleValue(req.query.category);
+    const rawProduct = getSingleValue(req.query.product);
     const rawQuery = getSingleValue(req.query.q);
     const rawMinPrice = getSingleValue(req.query.minPrice);
     const rawMaxPrice = getSingleValue(req.query.maxPrice);
+    const rawIncludeFacets = getSingleValue(req.query.includeFacets);
 
     const category = typeof rawCategory === 'string' ? rawCategory.trim() : '';
+    const product = typeof rawProduct === 'string' ? rawProduct.trim() : '';
     const q = typeof rawQuery === 'string' ? rawQuery.trim() : '';
 
     const parsedMinPrice = rawMinPrice ? Number(rawMinPrice) : NaN;
@@ -39,10 +55,12 @@ function parseListParams(req) {
         pageSize,
         filters: {
             category: category ? category : null,
+            product: product ? product : null,
             q: q ? q : null,
             minPrice: minPriceCents,
             maxPrice: maxPriceCents,
         },
+        includeFacets: parseBooleanFlag(rawIncludeFacets, false),
     };
 }
 
@@ -86,11 +104,11 @@ async function listProducts(req, res, next) {
 
 async function listVariants(req, res, next) {
     try {
-        const { filters, page, pageSize } = parseListParams(req);
+        const { filters, page, pageSize, includeFacets } = parseListParams(req);
         const { items, meta } = await catalogService.listVariants(filters, {
             page,
             pageSize,
-        });
+        }, { includeFacets });
         res.status(200).json({
             data: items,
             message: 'OK',

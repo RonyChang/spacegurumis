@@ -31,6 +31,15 @@
 - `expires_at`
 - `created_at`
 
+### password_reset_tokens
+- `id` (PK)
+- `user_id` (FK -> users.id)
+- `token_hash` (unique)
+- `expires_at`
+- `used_at`
+- `created_at`
+- `updated_at`
+
 ### user_addresses
 - `id` (PK)
 - `user_id` (unique, FK -> users.id)
