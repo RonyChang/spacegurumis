@@ -21,8 +21,8 @@ const HERO_FALLBACK_ASSETS: SiteAsset[] = [
         sortOrder: 0,
     },
 ];
-const HOME_PROMO_COPY = 'Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)';
-const HOME_PROMO_WHATSAPP_MESSAGE = 'Hola, quiero cotizar un pedido especial para amigurumis.';
+const HOME_PROMO_COPY = 'Haz tu pedido aquí, contáctanos con tu pedido especial para cotizar :)';
+const HOME_PROMO_WHATSAPP_MESSAGE = 'Hola, soy un humano curioso en busca de amigurumis especiales!';
 
 export type HomeCatalogInitialState = {
     variants: CatalogVariant[];
@@ -196,16 +196,16 @@ export default function HomePage({ initialData = null }: HomePageProps) {
         <section className="surface page storefront-shell home-shell">
             <section className="home-hero panel-card">
                 <div className="home-hero__content">
-                    <p className="section-eyebrow">Hecho con amor espacial</p>
+                    <p className="section-eyebrow">Hechos con amor espacial</p>
                     <h1>
-                        Adorables <span>Spacegurumi Friends</span>
+                        <span>Spacegurumi Friends</span>
                     </h1>
                     <p>
-                        Compañeros tejidos a mano desde la galaxia para acompañarte todos los dias.
+                        Compañeros tejidos a mano desde el espacio para acompañarte todos los dias.
                     </p>
                     <div className="home-hero__actions">
                         <a className="button button--primary" href="/shop" data-nav-prefetch>Adoptar ahora</a>
-                        <a className="button button--ghost" href="/shop" data-nav-prefetch>Ver catalogo</a>
+                        <a className="button button--ghost" href="/shop" data-nav-prefetch>Pedidos especiales</a>
                     </div>
                 </div>
 
@@ -227,7 +227,19 @@ export default function HomePage({ initialData = null }: HomePageProps) {
                                 target="_blank"
                                 rel="noreferrer"
                             >
-                                Contactar por WhatsApp
+                                <svg
+                                    aria-hidden="true"
+                                    focusable="false"
+                                    width="18"
+                                    height="18"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        fill="currentColor"
+                                        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.174.198-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.654-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.149-.174.198-.298.298-.497.099-.198.05-.372-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.372-.01-.57-.01-.198 0-.52.074-.792.372-.273.297-1.04 1.016-1.04 2.479s1.065 2.875 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.29.173-1.413-.074-.124-.272-.198-.57-.347M12.047 21.785h-.004a9.867 9.867 0 0 1-5.031-1.378l-.361-.214-3.741.982 1-3.648-.235-.374a9.864 9.864 0 0 1-1.51-5.26c.001-5.446 4.43-9.876 9.878-9.876a9.846 9.846 0 0 1 6.987 2.894 9.86 9.86 0 0 1 2.893 7c-.003 5.447-4.432 9.876-9.876 9.876m8.416-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.893A11.82 11.82 0 0 0 1.73 17.85L0 24l6.305-1.654a11.867 11.867 0 0 0 5.741 1.467h.005c6.556 0 11.89-5.335 11.893-11.893a11.82 11.82 0 0 0-3.477-8.432"
+                                    />
+                                </svg>
+                                <span>Contactar por WhatsApp</span>
                             </a>
                         ) : (
                             <div className="promo-cta__fallback" role="status" aria-live="polite">

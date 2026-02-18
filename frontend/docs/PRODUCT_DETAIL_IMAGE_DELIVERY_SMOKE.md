@@ -40,17 +40,20 @@ Validar que la galería de `/products/:slug` mantiene frame cuadrado `1:1` sin d
 - Fallback funciona exactamente en el orden esperado.
 - UI principal de compra (precio, cantidad, agregar al carrito, WhatsApp) sigue usable cuando hay fallback.
 
-## Registro de evidencia (completar en verify)
+## Registro de evidencia (verify)
 
 ```text
-Fecha:
-Ambiente:
-Desktop (1440x900): PASS|FAIL - notas
-Mobile (390x844): PASS|FAIL - notas
-Fallback transform->original->placeholder: PASS|FAIL - notas
+Fecha: 2026-02-18
+Ambiente: Produccion (https://spacegurumis.lat)
+Desktop (1440x900): PASS - main y thumbs en 1:1, sin deformacion ni recorte forzado.
+Mobile (390x844): PASS - sin overflow horizontal; compra y galeria usables.
+Fallback transform->original->placeholder: PASS - validado en falla controlada del host transformado y luego original.
 Capturas adjuntas:
-- [ ] vertical-1x1
-- [ ] horizontal-1x1
-- [ ] cuadrada-1x1
-- [ ] fallback-transform-original-placeholder
+- [x] vertical-1x1
+- [x] horizontal-1x1
+- [x] cuadrada-1x1
+- [x] fallback-transform-original-placeholder
+Notas:
+- Con worker activo, main usa preset `detail` y thumbs usan `thumb`.
+- En falla de transform, la imagen recupera con URL original antes de placeholder.
 ```

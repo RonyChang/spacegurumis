@@ -157,3 +157,24 @@ Notas:
 - `NetworkError when attempting to fetch resource` en navegador:
   - si ocurre en llamada a API admin (`/api/v1/admin/...`): revisar `PUBLIC_API_BASE_URL` y CORS backend.
   - si ocurre en `uploadUrl` de R2: revisar CORS bucket + conectividad + URL expirada.
+
+## Evidencia de smoke manual (2026-02-18)
+
+Ambiente validado:
+
+- Frontend admin: `https://spacegurumis.lat/admin/imagenes`
+- Scope: variante de producto
+- Bucket R2 con CORS browser `PUT` habilitado para dominio productivo
+
+Resultado por etapa:
+
+1. **Presign**: `PASS` (`200`) con contrato completo (`uploadUrl`, `imageKey`, `publicUrl`, `expiresInSeconds`).
+2. **PUT**: `PASS` (`2xx`) a R2 sin error CORS en DevTools.
+3. **Register**: `PASS` (`201`) y metadata persistida.
+4. **Lectura admin**: `PASS` (la imagen aparece en listado del scope y renderiza en modulo).
+5. **Fallo controlado PUT**: `PASS` (mensaje stage-aware de upload y sin intento de `register`).
+
+Evidencia revisada:
+
+- Network tab con requests `presign -> PUT -> register` exitosos.
+- Network tab con simulacion de fallo `PUT` (sin request `register` subsecuente).

@@ -308,6 +308,32 @@ test('keeps primary purchase flow usable when gallery falls back to placeholder'
     expect(screen.getByRole('link', { name: 'Consultar por WhatsApp' })).toBeInTheDocument();
 });
 
+test('keeps detail purchase flow usable when there are no related variants', async () => {
+    getCatalogProductDetailMock.mockResolvedValueOnce({
+        data: makeProductDetail({
+            variants: [
+                { id: 1, sku: 'SKU-RED', variantName: 'Rojo', price: 49.9, stockAvailable: 8 },
+            ],
+        }),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+    getCatalogVariantDetailMock.mockResolvedValueOnce({
+        data: makeVariantDetail('SKU-RED', 'Rojo'),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    await screen.findByText('SKU: SKU-RED');
+    expect(screen.queryByText(/Companeros de/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Agregar al carrito' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Consultar por WhatsApp' })).toBeInTheDocument();
+});
+
 test('builds whatsapp CTA from selected variant context', async () => {
     render(<ProductDetailPage slug="amigurumi" />);
 
