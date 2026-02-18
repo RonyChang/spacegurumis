@@ -12,7 +12,17 @@ Este frontend vive en `spacegurumis/frontend/` y ahora corre como **SSR en Node*
 - `src/lib/session/*`: helpers de sesion (afterLogin/logout) + flash messages (sin token en storage).
 - `src/lib/cart/*`: carrito guest (`localStorage.guestCart`) + sync al iniciar sesion.
 - `src/styles/global.css`: tokens + estilos base + componentes.
+- `src/styles/fonts.css`: `@font-face` self-hosted para tipografia storefront.
 - `legacy-static/`: frontend anterior (se conserva como referencia/rollback).
+
+### Tipografia self-hosted
+
+- Las fuentes del storefront se sirven localmente desde `frontend/public/fonts/` (sin depender de CDN en runtime).
+- Si deseas regenerarlas en formato `woff2` desde Google Fonts, usa:
+  - `frontend/scripts/selfhost-fonts.sh`
+- El frontend actual usa:
+  - `Noto Sans` (texto UI)
+  - `Noto Serif Display` (titulares)
 
 ## 2) SSR en Astro: pages vs islands (React)
 
@@ -64,6 +74,21 @@ Comportamiento:
 - Si falla la API o retorna vacio: se usa fallback local del hero (`/pedidos-especiales.jpeg`).
 - El CTA principal de pedidos especiales vive en el hero; el slot secundario `home-banner` es opcional y no bloquea conversion.
 
+### Delivery de imágenes 1:1 en Product Detail
+
+La galería de detalle (`/products/:slug`) usa dos presets fijos de Cloudflare Worker cuando la URL es elegible:
+- Imagen principal: preset `detail`
+- Miniaturas: preset `thumb`
+
+Reglas de seguridad del frontend:
+- Solo transforma `http/https`.
+- Solo transforma si el host de origen coincide con `PUBLIC_IMAGE_SOURCE_HOST`.
+- Solo transforma keys con prefijos permitidos (`variants/`, `products/`, `categories/`, `site/`).
+- Si una imagen transformada falla, aplica fallback escalonado: `transformada -> original -> /placeholder-product.svg`.
+
+Smoke operativo asociado:
+- `frontend/docs/PRODUCT_DETAIL_IMAGE_DELIVERY_SMOKE.md`
+
 ## 4) Variables de entorno (.env) y `PUBLIC_*`
 
 Astro expone al navegador solo variables que empiezan con `PUBLIC_`.
@@ -74,6 +99,12 @@ Variables clave:
 - `PUBLIC_API_BASE_URL`:
   - Vacío: modo **same-origin** (recomendado con reverse proxy). El browser llama `/api/v1/...`.
   - Con valor (ej. `https://api.ejemplo.com`): modo **cross-origin**. El browser llama `https://api.ejemplo.com/api/v1/...`.
+- `PUBLIC_IMAGE_TRANSFORM_BASE_URL`:
+  - Host base para presets de imagen transformada (ej. `https://img.spacegurumis.lat`).
+  - Si está vacío/inválido, Product Detail vuelve automáticamente a URL original sin romper UI.
+- `PUBLIC_IMAGE_SOURCE_HOST`:
+  - Host de origen permitido para transformar imágenes (ej. `assets.spacegurumis.lat`).
+  - Puede definirse como host puro o URL (`https://assets.spacegurumis.lat`).
 - `PUBLIC_WHATSAPP_NUMBER`, `PUBLIC_WHATSAPP_TEMPLATE`, `PUBLIC_WHATSAPP_ORDER_TEMPLATE`:
   - Configuran los links/mensajes de WhatsApp.
 

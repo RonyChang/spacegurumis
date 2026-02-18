@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Keep this URL in sync with the font families/weights you use in CSS.
-GOOGLE_FONTS_CSS_URL="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500,650&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+# Keep this URL in sync with the font families/weights used in `src/styles/global.css`.
+GOOGLE_FONTS_CSS_URL="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&family=Noto+Serif+Display:wght@400;700&display=swap"
 
 OUT_FONTS_DIR="$ROOT_DIR/public/fonts"
 OUT_CSS_FILE="$ROOT_DIR/src/styles/fonts.css"
@@ -67,4 +67,3 @@ cat "$tmp_css_out" >> "$OUT_CSS_FILE"
 
 echo "Wrote $OUT_CSS_FILE"
 echo "Done."
-

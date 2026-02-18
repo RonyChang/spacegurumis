@@ -9,6 +9,7 @@ const getCatalogVariantDetailMock = vi.fn();
 const addCartItemMock = vi.fn();
 const buildWhatsappProductMessageMock = vi.fn();
 const buildWhatsappUrlMock = vi.fn();
+const buildCatalogImageDeliveryUrlMock = vi.fn();
 
 vi.mock('../../lib/api/catalog', () => ({
     getCatalogProductDetail: (...args: unknown[]) => getCatalogProductDetailMock(...args),
@@ -27,6 +28,10 @@ vi.mock('../../lib/cart/guestCart', () => ({
 vi.mock('../../lib/whatsapp', () => ({
     buildWhatsappProductMessage: (...args: unknown[]) => buildWhatsappProductMessageMock(...args),
     buildWhatsappUrl: (...args: unknown[]) => buildWhatsappUrlMock(...args),
+}));
+
+vi.mock('../../lib/media/imageDelivery', () => ({
+    buildCatalogImageDeliveryUrl: (...args: unknown[]) => buildCatalogImageDeliveryUrlMock(...args),
 }));
 
 function makeProductDetail(overrides: Record<string, unknown> = {}) {
@@ -95,6 +100,15 @@ beforeEach(() => {
         `Consulta ${productName} (${sku})`
     ));
     buildWhatsappUrlMock.mockImplementation((message: string) => `https://wa.me/51999999999?text=${encodeURIComponent(message)}`);
+    buildCatalogImageDeliveryUrlMock.mockImplementation((url: string, preset: string) => {
+        if (!url || url.startsWith('/')) {
+            return url;
+        }
+
+        const parsed = new URL(url);
+        const key = parsed.pathname.replace(/^\/+/, '');
+        return `https://img.spacegurumis.lat/${preset}/${key}`;
+    });
 });
 
 afterEach(() => {
@@ -180,6 +194,118 @@ test('renders placeholder image when selected variant and product gallery are em
 
     const image = await screen.findByRole('img', { name: 'Amigurumi - Rojo' });
     expect(image).toHaveAttribute('src', '/placeholder-product.svg');
+    expect(buildCatalogImageDeliveryUrlMock).not.toHaveBeenCalled();
+});
+
+test('uses detail preset for main gallery image and thumb preset for thumbnails', async () => {
+    getCatalogVariantDetailMock.mockResolvedValueOnce({
+        data: makeVariantDetail('SKU-RED', 'Rojo', {
+            images: [
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/sku-red/main.webp',
+                    altText: 'Rojo principal',
+                    sortOrder: 0,
+                },
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/sku-red/side.webp',
+                    altText: 'Rojo lateral',
+                    sortOrder: 1,
+                },
+            ],
+        }),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    await screen.findByText('SKU: SKU-RED');
+
+    await waitFor(() => {
+        expect(buildCatalogImageDeliveryUrlMock).toHaveBeenCalledWith(
+            'https://assets.spacegurumis.lat/variants/sku-red/main.webp',
+            'detail'
+        );
+        expect(buildCatalogImageDeliveryUrlMock).toHaveBeenCalledWith(
+            'https://assets.spacegurumis.lat/variants/sku-red/main.webp',
+            'thumb'
+        );
+    });
+
+    const mainImage = document.querySelector('.gallery__main img');
+    expect(mainImage).not.toBeNull();
+    expect(mainImage).toHaveAttribute(
+        'src',
+        'https://img.spacegurumis.lat/detail/variants/sku-red/main.webp'
+    );
+
+    const thumbButtons = screen.getAllByRole('button', { name: /Imagen \d de 2/ });
+    const firstThumbImage = thumbButtons[0].querySelector('img');
+    expect(firstThumbImage).not.toBeNull();
+    expect(firstThumbImage).toHaveAttribute(
+        'src',
+        'https://img.spacegurumis.lat/thumb/variants/sku-red/main.webp'
+    );
+});
+
+test('falls back from transformed URL to original URL when transformed image fails', async () => {
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    await screen.findByText('SKU: SKU-RED');
+
+    const mainImage = document.querySelector('.gallery__main img') as HTMLImageElement | null;
+    expect(mainImage).not.toBeNull();
+    if (!mainImage) {
+        return;
+    }
+
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/main.webp'
+    );
+
+    fireEvent.error(mainImage);
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://assets.spacegurumis.lat/variants/sku-red/main.webp'
+    );
+});
+
+test('falls back to placeholder when transformed and original URLs both fail', async () => {
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    await screen.findByText('SKU: SKU-RED');
+
+    const mainImage = document.querySelector('.gallery__main img') as HTMLImageElement | null;
+    expect(mainImage).not.toBeNull();
+    if (!mainImage) {
+        return;
+    }
+
+    fireEvent.error(mainImage);
+    fireEvent.error(mainImage);
+
+    expect(mainImage.getAttribute('src')).toBe('/placeholder-product.svg');
+});
+
+test('keeps primary purchase flow usable when gallery falls back to placeholder', async () => {
+    getCatalogProductDetailMock.mockResolvedValueOnce({
+        data: makeProductDetail({ images: [] }),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+    getCatalogVariantDetailMock.mockResolvedValueOnce({
+        data: makeVariantDetail('SKU-RED', 'Rojo', { images: [] }),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    await screen.findByRole('img', { name: 'Amigurumi - Rojo' });
+    expect(screen.getByRole('button', { name: 'Agregar al carrito' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Consultar por WhatsApp' })).toBeInTheDocument();
 });
 
 test('builds whatsapp CTA from selected variant context', async () => {

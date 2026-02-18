@@ -39,7 +39,7 @@ body {
         radial-gradient(900px 600px at 85% 5%, rgba(163, 230, 53, 0.12), transparent 55%),
         var(--bg);
     color: var(--text);
-    font-family: 'Nunito', ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    font-family: 'Noto Sans', ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
     line-height: 1.5;
 }
 
@@ -92,7 +92,7 @@ pre {
 h1,
 h2,
 h3 {
-    font-family: 'Fredoka', ui-serif, 'Trebuchet MS', sans-serif;
+    font-family: 'Noto Serif Display', ui-serif, 'Trebuchet MS', sans-serif;
     letter-spacing: -0.01em;
     line-height: 1.1;
 }
@@ -194,7 +194,7 @@ h3 {
     overflow: hidden;
     background: rgba(163, 230, 53, 0.3);
     border: 1px solid rgba(139, 92, 246, 0.35);
-    font-family: 'Fredoka', ui-serif, 'Trebuchet MS', sans-serif;
+    font-family: 'Noto Serif Display', ui-serif, 'Trebuchet MS', sans-serif;
 }
 
 .brand__logo {
@@ -588,33 +588,36 @@ h3 {
 
 .gallery__main {
     width: 100%;
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 1 / 1;
     border-radius: 18px;
     overflow: hidden;
     border: 1px solid var(--border);
     background: var(--surface-2);
+    display: grid;
+    place-items: center;
 }
 
 .gallery__main img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
 }
 
 .gallery__thumbs {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(78px, 1fr));
     gap: 10px;
 }
 
 .gallery__thumb {
     width: 100%;
-    height: 68px;
+    aspect-ratio: 1 / 1;
     border-radius: 14px;
     border: 1px solid var(--border);
-    background: var(--surface);
-    display: block;
+    background: var(--surface-2);
+    display: grid;
+    place-items: center;
     overflow: hidden;
     padding: 0;
     cursor: pointer;
@@ -624,7 +627,7 @@ h3 {
     width: 100%;
     height: 100%;
     display: block;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .gallery__thumb--active {

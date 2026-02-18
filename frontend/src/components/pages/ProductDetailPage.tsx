@@ -9,6 +9,7 @@ import {
 } from '../../lib/api/catalog';
 import { readGuestCart, writeGuestCart } from '../../lib/cart/guestCart';
 import { formatPrice, formatVariantTitle } from '../../lib/format';
+import { buildCatalogImageDeliveryUrl } from '../../lib/media/imageDelivery';
 import { buildWhatsappProductMessage, buildWhatsappUrl } from '../../lib/whatsapp';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
@@ -24,13 +25,58 @@ export type ProductDetailInitialData = {
     selectedVariant: CatalogVariantDetail | null;
 };
 
+type GalleryImage = {
+    originalUrl: string;
+    detailUrl: string;
+    thumbUrl: string;
+    altText: string | null;
+    sortOrder: number | null;
+};
+
+const PLACEHOLDER_IMAGE_URL = '/placeholder-product.svg';
+
+function toAbsoluteImageUrl(url: string): string {
+    try {
+        if (typeof window === 'undefined') {
+            return new URL(url, 'http://localhost').toString();
+        }
+        return new URL(url, window.location.href).toString();
+    } catch {
+        return url;
+    }
+}
+
+function sameImageUrl(left: string, right: string): boolean {
+    return toAbsoluteImageUrl(left) === toAbsoluteImageUrl(right);
+}
+
 function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
     const img = event.currentTarget;
     if (img.dataset.fallbackApplied === '1') {
         return;
     }
     img.dataset.fallbackApplied = '1';
-    img.src = '/placeholder-product.svg';
+    img.src = PLACEHOLDER_IMAGE_URL;
+}
+
+function handleGalleryImageError(event: React.SyntheticEvent<HTMLImageElement>) {
+    const img = event.currentTarget;
+    const originalUrl = img.dataset.fallbackOriginal || '';
+    const currentStage = img.dataset.fallbackStage || 'original';
+
+    if (currentStage === 'transform' && originalUrl && !sameImageUrl(img.src, originalUrl)) {
+        img.dataset.fallbackStage = 'original';
+        img.src = originalUrl;
+        return;
+    }
+
+    if (currentStage !== 'placeholder' && !sameImageUrl(img.src, PLACEHOLDER_IMAGE_URL)) {
+        img.dataset.fallbackStage = 'placeholder';
+        img.src = PLACEHOLDER_IMAGE_URL;
+        return;
+    }
+
+    img.dataset.fallbackStage = 'done';
 }
 
 function getUrlSkuParam() {
@@ -242,22 +288,40 @@ export default function ProductDetailPage({
         [product, selectedSku]
     );
 
-    const gallery = useMemo(() => {
+    const gallery = useMemo<GalleryImage[]>(() => {
         const variantImages = selectedVariant && Array.isArray(selectedVariant.images)
             ? selectedVariant.images.filter((item) => item && item.url)
             : [];
         if (variantImages.length) {
-            return variantImages;
+            return variantImages.map((image) => ({
+                originalUrl: image.url,
+                detailUrl: buildCatalogImageDeliveryUrl(image.url, 'detail'),
+                thumbUrl: buildCatalogImageDeliveryUrl(image.url, 'thumb'),
+                altText: image.altText || null,
+                sortOrder: image.sortOrder ?? null,
+            }));
         }
 
         const productImages = product && Array.isArray(product.images)
             ? product.images.filter((item) => item && item.url)
             : [];
         if (productImages.length) {
-            return productImages;
+            return productImages.map((image) => ({
+                originalUrl: image.url,
+                detailUrl: buildCatalogImageDeliveryUrl(image.url, 'detail'),
+                thumbUrl: buildCatalogImageDeliveryUrl(image.url, 'thumb'),
+                altText: image.altText || null,
+                sortOrder: image.sortOrder ?? null,
+            }));
         }
 
-        return [{ url: '/placeholder-product.svg', altText: null, sortOrder: 0 }];
+        return [{
+            originalUrl: PLACEHOLDER_IMAGE_URL,
+            detailUrl: PLACEHOLDER_IMAGE_URL,
+            thumbUrl: PLACEHOLDER_IMAGE_URL,
+            altText: null,
+            sortOrder: 0,
+        }];
     }, [product, selectedVariant]);
 
     useEffect(() => {
@@ -335,29 +399,41 @@ export default function ProductDetailPage({
                         <div className="gallery">
                             <div className="gallery__main">
                                 <img
-                                    src={currentImage.url}
+                                    src={currentImage.detailUrl}
                                     alt={currentImage.altText || variantTitle}
                                     loading="eager"
                                     decoding="async"
-                                    onError={imgErrorToPlaceholder}
+                                    data-fallback-original={currentImage.originalUrl}
+                                    data-fallback-stage={
+                                        currentImage.detailUrl !== currentImage.originalUrl
+                                            ? 'transform'
+                                            : 'original'
+                                    }
+                                    onError={handleGalleryImageError}
                                 />
                             </div>
                             {gallery.length > 1 ? (
                                 <div className="gallery__thumbs">
                                     {gallery.map((image, index) => (
                                         <button
-                                            key={`${image.url}-${image.sortOrder}`}
+                                            key={`${image.originalUrl}-${image.sortOrder}`}
                                             type="button"
                                             className={`gallery__thumb ${index === selectedImageIndex ? 'gallery__thumb--active' : ''}`}
                                             onClick={() => setSelectedImageIndex(index)}
                                             aria-label={`Imagen ${index + 1} de ${gallery.length}`}
                                         >
                                             <img
-                                                src={image.url}
+                                                src={image.thumbUrl}
                                                 alt={image.altText || variantTitle}
                                                 loading="lazy"
                                                 decoding="async"
-                                                onError={imgErrorToPlaceholder}
+                                                data-fallback-original={image.originalUrl}
+                                                data-fallback-stage={
+                                                    image.thumbUrl !== image.originalUrl
+                                                        ? 'transform'
+                                                        : 'original'
+                                                }
+                                                onError={handleGalleryImageError}
                                             />
                                         </button>
                                     ))}

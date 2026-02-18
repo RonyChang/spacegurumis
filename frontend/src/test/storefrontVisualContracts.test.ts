@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
 const globalCss = readFileSync(resolve(process.cwd(), 'src/styles/global.css'), 'utf8');
+const fontsCss = readFileSync(resolve(process.cwd(), 'src/styles/fonts.css'), 'utf8');
 
 function readCssVariable(name: string) {
     const match = globalCss.match(new RegExp(`--${name}:\\s*([^;]+);`));
@@ -42,6 +43,17 @@ function contrastRatio(foreground: string, background: string) {
 }
 
 describe('storefront visual contracts', () => {
+    test('uses self-hosted storefront fonts', () => {
+        expect(fontsCss).toContain("@font-face");
+        expect(fontsCss).toContain("font-family: 'Noto Sans'");
+        expect(fontsCss).toContain("font-family: 'Noto Serif Display'");
+        expect(fontsCss).toContain("url('/fonts/NotoSans-Regular.ttf')");
+        expect(fontsCss).toContain("url('/fonts/NotoSerifDisplay-Bold.ttf')");
+
+        expect(globalCss).toContain("font-family: 'Noto Sans'");
+        expect(globalCss).toContain("font-family: 'Noto Serif Display'");
+    });
+
     test('keeps accessible contrast for primary text and CTA combinations', () => {
         const text = readCssVariable('text');
         const surface = readCssVariable('surface');
@@ -60,4 +72,3 @@ describe('storefront visual contracts', () => {
         expect(globalCss).toMatch(/@media \(max-width:\s*820px\)[\s\S]*\.detail-shell__grid\s*{[\s\S]*grid-template-columns:\s*1fr;/);
     });
 });
-
