@@ -33,6 +33,20 @@ describe('buildApiUrl', () => {
         );
     });
 
+    test('supports same-origin admin upload routes when PUBLIC_API_BASE_URL is empty', async () => {
+        const buildApiUrl = await loadBuildApiUrl('');
+        expect(buildApiUrl('/api/v1/admin/variants/300/images/presign')).toBe(
+            '/api/v1/admin/variants/300/images/presign'
+        );
+    });
+
+    test('supports absolute admin upload routes when PUBLIC_API_BASE_URL is configured', async () => {
+        const buildApiUrl = await loadBuildApiUrl('https://api.spacegurumis.lat');
+        expect(buildApiUrl('/api/v1/admin/variants/300/images/presign')).toBe(
+            'https://api.spacegurumis.lat/api/v1/admin/variants/300/images/presign'
+        );
+    });
+
     test('throws when path is empty', async () => {
         const buildApiUrl = await loadBuildApiUrl('');
         expect(() => buildApiUrl('')).toThrowError('API path is required');

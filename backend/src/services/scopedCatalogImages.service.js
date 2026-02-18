@@ -93,20 +93,24 @@ function mapScopedImage(row, scope) {
 }
 
 function validateHeadMetadata(head, contentType, byteSize) {
+    if (head && head.error) {
+        return { ok: false, code: 'register_head_failed', message: 'No se pudo verificar el archivo en R2 (HEAD fallo)' };
+    }
+
     if (!head.exists) {
-        return { ok: false, message: 'El archivo no existe en R2 (o no es accesible publicamente)' };
+        return { ok: false, code: 'register_object_missing', message: 'El archivo no existe en R2 (o no es accesible publicamente)' };
     }
 
     if (head.contentType) {
         const headType = normalizeContentType(String(head.contentType).split(';')[0]);
         if (headType && headType !== contentType) {
-            return { ok: false, message: 'contentType no coincide con el archivo en R2' };
+            return { ok: false, code: 'register_content_type_mismatch', message: 'contentType no coincide con el archivo en R2' };
         }
     }
 
     if (typeof head.byteSize === 'number' && Number.isFinite(head.byteSize)) {
         if (Math.abs(head.byteSize - byteSize) > 0) {
-            return { ok: false, message: 'byteSize no coincide con el archivo en R2' };
+            return { ok: false, code: 'register_byte_size_mismatch', message: 'byteSize no coincide con el archivo en R2' };
         }
     }
 
@@ -159,7 +163,11 @@ async function presignCategoryImage(categoryId, payload) {
         });
         return { data };
     } catch (error) {
-        return { error: 'bad_request', message: error && error.message ? error.message : 'Solicitud invalida' };
+        return {
+            error: 'bad_request',
+            code: 'presign_contract_invalid',
+            message: error && error.message ? error.message : 'Solicitud invalida',
+        };
     }
 }
 
@@ -207,7 +215,7 @@ async function registerCategoryImage(categoryId, payload) {
     const head = await r2Service.headPublicObject(publicUrl);
     const headValidation = validateHeadMetadata(head, contentType, byteSize);
     if (!headValidation.ok) {
-        return { error: 'bad_request', message: headValidation.message };
+        return { error: 'bad_request', code: headValidation.code, message: headValidation.message };
     }
 
     const created = await sequelize.transaction(async (transaction) => {
@@ -321,7 +329,11 @@ async function presignProductImage(productId, payload, context = {}) {
         });
         return { data };
     } catch (error) {
-        return { error: 'bad_request', message: error && error.message ? error.message : 'Solicitud invalida' };
+        return {
+            error: 'bad_request',
+            code: 'presign_contract_invalid',
+            message: error && error.message ? error.message : 'Solicitud invalida',
+        };
     }
 }
 
@@ -369,7 +381,7 @@ async function registerProductImage(productId, payload, context = {}) {
     const head = await r2Service.headPublicObject(publicUrl);
     const headValidation = validateHeadMetadata(head, contentType, byteSize);
     if (!headValidation.ok) {
-        return { error: 'bad_request', message: headValidation.message };
+        return { error: 'bad_request', code: headValidation.code, message: headValidation.message };
     }
 
     const created = await sequelize.transaction(async (transaction) => {

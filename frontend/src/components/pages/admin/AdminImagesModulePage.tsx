@@ -4,6 +4,7 @@ import Button from '../../ui/Button';
 import TextField from '../../ui/TextField';
 import AdminGuard from '../../admin/AdminGuard';
 import AdminShell from '../../admin/AdminShell';
+import { ApiError } from '../../../lib/api/client';
 import {
     deleteCategoryImage,
     deleteProductImage,
@@ -28,6 +29,7 @@ import {
 
 type NoticeTone = 'info' | 'success' | 'error';
 type ImageScope = 'none' | 'category' | 'product' | 'variant';
+type UploadStage = 'presign' | 'upload_put' | 'register';
 
 type ManagedImage = {
     id: number;
@@ -37,12 +39,89 @@ type ManagedImage = {
     sortOrder: number;
 };
 
+type PresignContract = {
+    uploadUrl: string;
+    imageKey: string;
+    headers: Record<string, string>;
+};
+
 function asIntegerOrZero(value: string) {
     const parsed = Number(value);
     if (!Number.isFinite(parsed)) {
         return 0;
     }
     return Math.max(0, Math.round(parsed));
+}
+
+function normalizePresignHeaders(value: unknown): Record<string, string> {
+    if (!value || typeof value !== 'object') {
+        return {};
+    }
+
+    const normalized: Record<string, string> = {};
+    Object.entries(value as Record<string, unknown>).forEach(([key, headerValue]) => {
+        if (typeof headerValue !== 'string') {
+            return;
+        }
+        const trimmed = headerValue.trim();
+        if (!trimmed) {
+            return;
+        }
+        normalized[key] = trimmed;
+    });
+
+    return normalized;
+}
+
+function assertPresignContract(data: unknown): PresignContract {
+    const payload = data && typeof data === 'object' ? (data as Record<string, unknown>) : {};
+    const uploadUrl = typeof payload.uploadUrl === 'string' ? payload.uploadUrl.trim() : '';
+    const imageKey = typeof payload.imageKey === 'string' ? payload.imageKey.trim() : '';
+
+    if (!uploadUrl) {
+        throw new Error('Respuesta presign invalida: falta uploadUrl.');
+    }
+    if (!imageKey) {
+        throw new Error('Respuesta presign invalida: falta imageKey.');
+    }
+
+    return {
+        uploadUrl,
+        imageKey,
+        headers: normalizePresignHeaders(payload.headers),
+    };
+}
+
+function extractApiErrorCode(error: unknown): string {
+    if (!(error instanceof ApiError) || !error.payload || typeof error.payload !== 'object') {
+        return '';
+    }
+
+    const payload = error.payload as { errors?: Array<{ code?: unknown }> };
+    const first = Array.isArray(payload.errors) ? payload.errors[0] : null;
+    return typeof first?.code === 'string' ? first.code.trim() : '';
+}
+
+function buildUploadStageMessage(stage: UploadStage, error: unknown): string {
+    const detail = error instanceof Error ? error.message : 'Error desconocido.';
+    const code = extractApiErrorCode(error);
+
+    if (stage === 'presign') {
+        return `No se pudo iniciar la subida (presign). Revisa sesion admin, CSRF y configuracion R2. Detalle: ${detail}`;
+    }
+
+    if (stage === 'upload_put') {
+        return `No se pudo subir el archivo a R2 (upload). Revisa CORS del bucket, dominio y conectividad. Detalle: ${detail}`;
+    }
+
+    if (code === 'register_object_missing') {
+        return `La subida no quedo disponible en R2 al registrar (register). Verifica CORS, dominio publico y propagacion. Detalle: ${detail}`;
+    }
+    if (code === 'register_content_type_mismatch' || code === 'register_byte_size_mismatch') {
+        return `La subida llego a R2, pero el backend detecto metadata inconsistente al registrar (register). Detalle: ${detail}`;
+    }
+
+    return `La subida llego a R2, pero fallo el registro en backend (register). Detalle: ${detail}`;
 }
 
 export default function AdminImagesModulePage() {
@@ -231,28 +310,27 @@ export default function AdminImagesModulePage() {
             return;
         }
 
+        let currentStage: UploadStage = 'presign';
+
         try {
             const payload = {
                 contentType: uploadFile.type,
                 byteSize: uploadFile.size,
             };
 
-            let uploadUrl = '';
-            let imageKey = '';
+            let contract: PresignContract | null = null;
 
             if (scope === 'category') {
                 const categoryId = Number(selectedCategoryId);
                 const presigned = await presignCategoryImage(categoryId, payload);
-                uploadUrl = presigned.data.uploadUrl;
-                imageKey = presigned.data.imageKey;
+                contract = assertPresignContract(presigned.data);
             }
 
             if (scope === 'product') {
                 const productId = Number(selectedProductId);
                 const categoryId = Number(selectedCategoryId);
                 const presigned = await presignProductImage(productId, payload, { categoryId });
-                uploadUrl = presigned.data.uploadUrl;
-                imageKey = presigned.data.imageKey;
+                contract = assertPresignContract(presigned.data);
             }
 
             if (scope === 'variant') {
@@ -260,21 +338,31 @@ export default function AdminImagesModulePage() {
                 const categoryId = Number(selectedCategoryId);
                 const productId = Number(selectedProductId);
                 const presigned = await presignVariantImage(variantId, payload, { categoryId, productId });
-                uploadUrl = presigned.data.uploadUrl;
-                imageKey = presigned.data.imageKey;
+                contract = assertPresignContract(presigned.data);
             }
 
-            const putRes = await fetch(uploadUrl, {
+            if (!contract) {
+                throw new Error('No se pudo determinar el scope de subida.');
+            }
+
+            currentStage = 'upload_put';
+            const uploadHeaders = new Headers(contract.headers);
+            if (!uploadHeaders.has('Content-Type')) {
+                uploadHeaders.set('Content-Type', uploadFile.type);
+            }
+
+            const putRes = await fetch(contract.uploadUrl, {
                 method: 'PUT',
-                headers: { 'Content-Type': uploadFile.type },
+                headers: uploadHeaders,
                 body: uploadFile,
             });
             if (!putRes.ok) {
-                throw new Error(`Fallo la subida a R2 (${putRes.status})`);
+                throw new Error(`R2 rechazo la subida (${putRes.status})`);
             }
 
+            currentStage = 'register';
             const registerPayload = {
-                imageKey,
+                imageKey: contract.imageKey,
                 contentType: uploadFile.type,
                 byteSize: uploadFile.size,
                 altText: uploadAltText.trim() || null,
@@ -306,7 +394,7 @@ export default function AdminImagesModulePage() {
         } catch (error) {
             setNotice({
                 tone: 'error',
-                message: error instanceof Error ? error.message : 'No se pudo subir imagen.',
+                message: buildUploadStageMessage(currentStage, error),
             });
         }
     }

@@ -5,10 +5,16 @@ Esta guia describe el flujo de subida directa a Cloudflare R2 con URL presignada
 ## Flujo base (presign + PUT + register)
 
 1. Frontend admin solicita `presign` al backend.
-2. Backend responde `uploadUrl` temporal + `imageKey`.
+2. Backend responde contrato completo de subida: `uploadUrl`, `imageKey`, `publicUrl`, `expiresInSeconds`.
 3. Frontend sube archivo con `PUT` directo a R2.
 4. Frontend llama endpoint `register` para persistir metadata en Postgres.
 5. Backend valida existencia del objeto via `HEAD` publico antes de guardar.
+
+Cada etapa debe diagnosticarse por separado:
+
+- `presign`: valida auth/csrf y configuracion R2 del backend.
+- `PUT`: valida CORS del bucket + conectividad browser.
+- `register`: valida que el objeto exista y metadata coincida.
 
 ## Scopes soportados y cardinalidad
 
@@ -99,14 +105,19 @@ Ejemplo (ajusta origins):
 ```json
 [
   {
-    "AllowedOrigins": ["https://spacegurumis.lat", "http://localhost:4321"],
+    "AllowedOrigins": ["https://spacegurumis.lat", "https://www.spacegurumis.lat", "http://localhost:4321"],
     "AllowedMethods": ["PUT", "GET", "HEAD"],
-    "AllowedHeaders": ["Content-Type"],
+    "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
     "MaxAgeSeconds": 3000
   }
 ]
 ```
+
+Notas:
+
+- Si usas `PUBLIC_API_BASE_URL` vacio (same-origin), esto no cambia el `PUT` a R2: igual depende del CORS del bucket.
+- Si cambias dominio frontend o subdominio `www`, agregalo explicitamente en `AllowedOrigins`.
 
 ## Registro: validaciones importantes
 
@@ -114,9 +125,35 @@ Ejemplo (ajusta origins):
 - `contentType` y `byteSize` deben estar permitidos y coincidir con el objeto subido.
 - Sin `R2_PUBLIC_BASE_URL` valido/publico, `register` falla.
 
+## Smoke checklist (reproducible)
+
+1. **Presign OK**
+   - `POST /api/v1/admin/variants/:id/images/presign`
+   - Esperado: `200` y `data.uploadUrl`, `data.imageKey`, `data.publicUrl`, `data.expiresInSeconds`.
+
+2. **PUT a R2 OK**
+   - Ejecutar `PUT` del archivo a `uploadUrl` con header `Content-Type` correspondiente.
+   - Esperado: `2xx` desde R2 sin error CORS en DevTools.
+
+3. **Register OK**
+   - `POST /api/v1/admin/variants/:id/images` con `imageKey`, `contentType`, `byteSize`.
+   - Esperado: `201` y metadata persistida.
+
+4. **Validacion de lectura**
+   - `GET /api/v1/admin/variants/:id/images` debe incluir la imagen nueva.
+   - El modulo admin debe renderizar la imagen en la lista del scope.
+
+5. **Escenario de fallo controlado**
+   - Forzar error CORS (origin no permitido) o `uploadUrl` vencida.
+   - Esperado: frontend reporta falla en etapa upload (`PUT`) y no intenta `register`.
+
 ## Troubleshooting rapido
 
 - `403` en mutaciones admin: revisar sesion, rol admin y CSRF token/header.
-- CORS falla en PUT: revisar origins/metodos/headers del bucket.
-- `register` dice objeto inexistente: validar `R2_PUBLIC_BASE_URL` y acceso publico `HEAD`.
+- `presign` falla: revisar `R2_ENDPOINT`, `R2_BUCKET`, credenciales y `R2_PUBLIC_BASE_URL` en backend.
+- CORS falla en PUT: revisar `AllowedOrigins`, `AllowedMethods`, `AllowedHeaders` del bucket.
+- `register` dice objeto inexistente: validar que el `PUT` realmente llego a R2 y que `R2_PUBLIC_BASE_URL` permite `HEAD`.
 - Errores de pertenencia de scope: verificar que categoria/producto/variante seleccionados esten relacionados.
+- `NetworkError when attempting to fetch resource` en navegador:
+  - si ocurre en llamada a API admin (`/api/v1/admin/...`): revisar `PUBLIC_API_BASE_URL` y CORS backend.
+  - si ocurre en `uploadUrl` de R2: revisar CORS bucket + conectividad + URL expirada.

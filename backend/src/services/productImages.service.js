@@ -92,6 +92,7 @@ async function presignProductImage(variantId, { contentType, byteSize }, context
     } catch (error) {
         return {
             error: 'bad_request',
+            code: 'presign_contract_invalid',
             message: error && error.message ? error.message : 'Solicitud invalida',
         };
     }
@@ -146,20 +147,39 @@ async function registerProductImage(variantId, payload, context = {}) {
 
     // Verify object exists (public HEAD). This avoids registering arbitrary keys.
     const head = await r2Service.headPublicObject(publicUrl);
+    if (head && head.error) {
+        return {
+            error: 'bad_request',
+            code: 'register_head_failed',
+            message: 'No se pudo verificar el archivo en R2 (HEAD fallo)',
+        };
+    }
     if (!head.exists) {
-        return { error: 'bad_request', message: 'El archivo no existe en R2 (o no es accesible publicamente)' };
+        return {
+            error: 'bad_request',
+            code: 'register_object_missing',
+            message: 'El archivo no existe en R2 (o no es accesible publicamente)',
+        };
     }
 
     // Best-effort metadata validation if available.
     if (head.contentType) {
         const headType = normalizeContentType(String(head.contentType).split(';')[0]);
         if (headType && headType !== contentType) {
-            return { error: 'bad_request', message: 'contentType no coincide con el archivo en R2' };
+            return {
+                error: 'bad_request',
+                code: 'register_content_type_mismatch',
+                message: 'contentType no coincide con el archivo en R2',
+            };
         }
     }
     if (typeof head.byteSize === 'number' && Number.isFinite(head.byteSize)) {
         if (Math.abs(head.byteSize - byteSize) > 0) {
-            return { error: 'bad_request', message: 'byteSize no coincide con el archivo en R2' };
+            return {
+                error: 'bad_request',
+                code: 'register_byte_size_mismatch',
+                message: 'byteSize no coincide con el archivo en R2',
+            };
         }
     }
 

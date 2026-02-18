@@ -48,6 +48,7 @@ const listAdminDiscountsMock = vi.fn();
 const createAdminDiscountMock = vi.fn();
 const updateAdminDiscountMock = vi.fn();
 const deleteAdminDiscountMock = vi.fn();
+let fetchMock: ReturnType<typeof vi.fn>;
 
 vi.mock('../../../lib/api/profile', () => ({
     getProfile: (...args: unknown[]) => getProfileMock(...args),
@@ -202,13 +203,35 @@ beforeEach(() => {
     updateCategoryImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     deleteCategoryImageMock.mockResolvedValue({ data: { deleted: true }, message: 'OK', errors: [], meta: {} });
 
-    presignProductImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
+    presignProductImageMock.mockResolvedValue({
+        data: {
+            uploadUrl: 'https://upload.test/product',
+            imageKey: 'products/101/new.webp',
+            publicUrl: 'https://assets.spacegurumis.lat/products/101/new.webp',
+            expiresInSeconds: 120,
+            headers: { 'Content-Type': 'image/webp' },
+        },
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
     registerProductImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     listProductImagesMock.mockResolvedValue({ data: [], message: 'OK', errors: [], meta: {} });
     updateProductImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     deleteProductImageMock.mockResolvedValue({ data: { deleted: true }, message: 'OK', errors: [], meta: {} });
 
-    presignVariantImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
+    presignVariantImageMock.mockResolvedValue({
+        data: {
+            uploadUrl: 'https://upload.test/variant',
+            imageKey: 'variants/300/new.webp',
+            publicUrl: 'https://assets.spacegurumis.lat/variants/300/new.webp',
+            expiresInSeconds: 120,
+            headers: { 'Content-Type': 'image/webp' },
+        },
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
     registerVariantImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     listVariantImagesMock.mockResolvedValue({ data: [], message: 'OK', errors: [], meta: {} });
     updateVariantImageMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
@@ -236,13 +259,11 @@ beforeEach(() => {
     updateAdminDiscountMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
     deleteAdminDiscountMock.mockResolvedValue({ data: {}, message: 'OK', errors: [], meta: {} });
 
-    vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue({
-            ok: true,
-            status: 200,
-        })
-    );
+    fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+    });
+    vi.stubGlobal('fetch', fetchMock);
 });
 
 afterEach(() => {
@@ -307,6 +328,68 @@ test('images module uploads category image when only category is selected', asyn
             })
         );
     });
+});
+
+test('images module shows presign-stage error and stops flow when presign fails', async () => {
+    presignCategoryImageMock.mockRejectedValueOnce(new Error('Request failed'));
+
+    render(<AdminImagesModulePage />);
+    await screen.findByRole('heading', { name: 'Imagenes' });
+
+    fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: '10' } });
+    const file = new File(['img'], 'photo.webp', { type: 'image/webp' });
+    fireEvent.change(screen.getByLabelText('Archivo de imagen'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Subir imagen' }));
+
+    await screen.findByText(/No se pudo iniciar la subida \(presign\)/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(registerCategoryImageMock).not.toHaveBeenCalled();
+});
+
+test('images module validates presign contract before PUT', async () => {
+    presignCategoryImageMock.mockResolvedValueOnce({ data: { uploadUrl: '', imageKey: '' }, message: 'OK', errors: [], meta: {} });
+
+    render(<AdminImagesModulePage />);
+    await screen.findByRole('heading', { name: 'Imagenes' });
+
+    fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: '10' } });
+    const file = new File(['img'], 'photo.webp', { type: 'image/webp' });
+    fireEvent.change(screen.getByLabelText('Archivo de imagen'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Subir imagen' }));
+
+    await screen.findByText(/Respuesta presign invalida/i);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(registerCategoryImageMock).not.toHaveBeenCalled();
+});
+
+test('images module shows upload-stage error and skips register on PUT network failure', async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    render(<AdminImagesModulePage />);
+    await screen.findByRole('heading', { name: 'Imagenes' });
+
+    fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: '10' } });
+    const file = new File(['img'], 'photo.webp', { type: 'image/webp' });
+    fireEvent.change(screen.getByLabelText('Archivo de imagen'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Subir imagen' }));
+
+    await screen.findByText(/No se pudo subir el archivo a R2 \(upload\)/i);
+    expect(registerCategoryImageMock).not.toHaveBeenCalled();
+});
+
+test('images module shows register-stage error when register fails after successful PUT', async () => {
+    registerCategoryImageMock.mockRejectedValueOnce(new Error('register rejected'));
+
+    render(<AdminImagesModulePage />);
+    await screen.findByRole('heading', { name: 'Imagenes' });
+
+    fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: '10' } });
+    const file = new File(['img'], 'photo.webp', { type: 'image/webp' });
+    fireEvent.change(screen.getByLabelText('Archivo de imagen'), { target: { files: [file] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Subir imagen' }));
+
+    await screen.findByText(/fallo el registro en backend \(register\)/i);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 });
 
 test('images module removes only one image from variant gallery', async () => {

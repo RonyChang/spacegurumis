@@ -94,3 +94,49 @@ test('presignSiteAssetUpload uses site/<slot>/ prefix and expected expiration', 
         r2.maxImageBytes = original.maxImageBytes;
     }
 });
+
+test('presignCatalogImageUpload fails fast when R2_PUBLIC_BASE_URL is missing', () => {
+    const original = {
+        endpoint: r2.endpoint,
+        bucket: r2.bucket,
+        accessKeyId: r2.accessKeyId,
+        secretAccessKey: r2.secretAccessKey,
+        region: r2.region,
+        publicBaseUrl: r2.publicBaseUrl,
+        presignExpiresSeconds: r2.presignExpiresSeconds,
+        allowedImageContentTypes: [...r2.allowedImageContentTypes],
+        maxImageBytes: r2.maxImageBytes,
+    };
+
+    try {
+        r2.endpoint = 'https://example.r2.cloudflarestorage.com';
+        r2.bucket = 'spacegurumis';
+        r2.accessKeyId = 'AKIDEXAMPLE';
+        r2.secretAccessKey = 'secret';
+        r2.region = 'auto';
+        r2.publicBaseUrl = '';
+        r2.presignExpiresSeconds = 120;
+        r2.allowedImageContentTypes = ['image/webp'];
+        r2.maxImageBytes = 1024 * 1024;
+
+        assert.throws(
+            () => r2Service.presignCatalogImageUpload({
+                scope: 'variant',
+                entityId: 123,
+                contentType: 'image/webp',
+                byteSize: 2048,
+            }),
+            /R2_PUBLIC_BASE_URL no configurado/
+        );
+    } finally {
+        r2.endpoint = original.endpoint;
+        r2.bucket = original.bucket;
+        r2.accessKeyId = original.accessKeyId;
+        r2.secretAccessKey = original.secretAccessKey;
+        r2.region = original.region;
+        r2.publicBaseUrl = original.publicBaseUrl;
+        r2.presignExpiresSeconds = original.presignExpiresSeconds;
+        r2.allowedImageContentTypes = original.allowedImageContentTypes;
+        r2.maxImageBytes = original.maxImageBytes;
+    }
+});

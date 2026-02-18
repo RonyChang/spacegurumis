@@ -8,11 +8,16 @@ function parseId(value) {
     return parsed;
 }
 
-function badRequest(res, message) {
+function badRequest(res, message, code) {
+    const errorItem = { message: message || 'Solicitud invalida' };
+    if (code) {
+        errorItem.code = code;
+    }
+
     return res.status(400).json({
         data: null,
         message: message || 'Solicitud invalida',
-        errors: [{ message: message || 'Solicitud invalida' }],
+        errors: [errorItem],
         meta: {},
     });
 }
@@ -58,7 +63,7 @@ async function presign(req, res, next) {
             return notFound(res, 'Variante no encontrada');
         }
         if (result.error === 'bad_request') {
-            return badRequest(res, result.message || 'Solicitud invalida');
+            return badRequest(res, result.message || 'Solicitud invalida', result.code);
         }
         if (result.error) {
             return next(new Error(result.message || 'No se pudo generar presign'));
@@ -89,7 +94,7 @@ async function register(req, res, next) {
             return notFound(res, 'Variante no encontrada');
         }
         if (result.error === 'bad_request') {
-            return badRequest(res, result.message || 'Solicitud invalida');
+            return badRequest(res, result.message || 'Solicitud invalida', result.code);
         }
         if (result.error) {
             return next(new Error(result.message || 'No se pudo registrar la imagen'));

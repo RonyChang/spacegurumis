@@ -117,6 +117,101 @@ test('productImages.controller.presign maps service not_found to 404', async () 
     }
 });
 
+test('presignProductImage returns complete browser-ready contract', async () => {
+    const originalFindByPk = ProductVariant.findByPk;
+    const originalR2 = {
+        endpoint: r2.endpoint,
+        bucket: r2.bucket,
+        accessKeyId: r2.accessKeyId,
+        secretAccessKey: r2.secretAccessKey,
+        region: r2.region,
+        publicBaseUrl: r2.publicBaseUrl,
+        presignExpiresSeconds: r2.presignExpiresSeconds,
+        allowedImageContentTypes: [...r2.allowedImageContentTypes],
+        maxImageBytes: r2.maxImageBytes,
+    };
+
+    try {
+        ProductVariant.findByPk = async (id) => ({
+            get() {
+                return { id };
+            },
+        });
+
+        r2.endpoint = 'https://example.r2.cloudflarestorage.com';
+        r2.bucket = 'spacegurumis';
+        r2.accessKeyId = 'AKIDEXAMPLE';
+        r2.secretAccessKey = 'secret';
+        r2.region = 'auto';
+        r2.publicBaseUrl = 'https://assets.spacegurumis.lat';
+        r2.presignExpiresSeconds = 120;
+        r2.allowedImageContentTypes = ['image/webp'];
+        r2.maxImageBytes = 1024 * 1024;
+
+        const res = await productImagesService.presignProductImage(123, {
+            contentType: 'image/webp',
+            byteSize: 2048,
+        });
+
+        assert.equal(res.error, undefined);
+        assert.ok(res.data);
+        assert.ok(String(res.data.uploadUrl || '').includes('X-Amz-Signature='));
+        assert.match(String(res.data.imageKey || ''), /^variants\/123\/[0-9a-f-]{36}\.webp$/);
+        assert.equal(
+            String(res.data.publicUrl || '').startsWith('https://assets.spacegurumis.lat/variants/123/'),
+            true
+        );
+        assert.equal(Number(res.data.expiresInSeconds), 120);
+    } finally {
+        ProductVariant.findByPk = originalFindByPk;
+        r2.endpoint = originalR2.endpoint;
+        r2.bucket = originalR2.bucket;
+        r2.accessKeyId = originalR2.accessKeyId;
+        r2.secretAccessKey = originalR2.secretAccessKey;
+        r2.region = originalR2.region;
+        r2.publicBaseUrl = originalR2.publicBaseUrl;
+        r2.presignExpiresSeconds = originalR2.presignExpiresSeconds;
+        r2.allowedImageContentTypes = originalR2.allowedImageContentTypes;
+        r2.maxImageBytes = originalR2.maxImageBytes;
+    }
+});
+
+test('presignProductImage fails fast when R2 config is incomplete', async () => {
+    const originalFindByPk = ProductVariant.findByPk;
+    const originalEndpoint = r2.endpoint;
+    const originalPublicBaseUrl = r2.publicBaseUrl;
+
+    try {
+        ProductVariant.findByPk = async (id) => ({
+            get() {
+                return { id };
+            },
+        });
+        r2.endpoint = '';
+        r2.publicBaseUrl = 'https://assets.spacegurumis.lat';
+
+        const missingEndpoint = await productImagesService.presignProductImage(123, {
+            contentType: 'image/webp',
+            byteSize: 2048,
+        });
+        assert.equal(missingEndpoint.error, 'bad_request');
+        assert.match(String(missingEndpoint.message || ''), /R2 endpoint no configurado/i);
+
+        r2.endpoint = 'https://example.r2.cloudflarestorage.com';
+        r2.publicBaseUrl = '';
+        const missingPublicBase = await productImagesService.presignProductImage(123, {
+            contentType: 'image/webp',
+            byteSize: 2048,
+        });
+        assert.equal(missingPublicBase.error, 'bad_request');
+        assert.match(String(missingPublicBase.message || ''), /R2_PUBLIC_BASE_URL no configurado/i);
+    } finally {
+        ProductVariant.findByPk = originalFindByPk;
+        r2.endpoint = originalEndpoint;
+        r2.publicBaseUrl = originalPublicBaseUrl;
+    }
+});
+
 test('registerProductImage derives publicUrl (does not accept arbitrary URL)', async () => {
     const originalFindByPk = ProductVariant.findByPk;
     const originalHead = r2Service.headPublicObject;
@@ -201,6 +296,49 @@ test('registerProductImage rejects unsupported content type', async () => {
     }
 });
 
+test('registerProductImage rejects metadata mismatch and does not persist', async () => {
+    const originalFindByPk = ProductVariant.findByPk;
+    const originalHead = r2Service.headPublicObject;
+    const originalCreate = productImagesRepository.createProductImage;
+    const originalPublicBaseUrl = r2.publicBaseUrl;
+    let createCalls = 0;
+
+    try {
+        ProductVariant.findByPk = async (id) => ({
+            get() {
+                return { id };
+            },
+        });
+        r2.publicBaseUrl = 'https://assets.example.com';
+        r2Service.headPublicObject = async () => ({
+            exists: true,
+            status: 200,
+            contentType: 'image/png',
+            byteSize: 123,
+        });
+        productImagesRepository.createProductImage = async (data) => {
+            createCalls += 1;
+            return data;
+        };
+
+        const res = await productImagesService.registerProductImage(123, {
+            imageKey: 'variants/123/mismatch.webp',
+            contentType: 'image/webp',
+            byteSize: 123,
+        });
+
+        assert.equal(res.error, 'bad_request');
+        assert.equal(res.code, 'register_content_type_mismatch');
+        assert.match(String(res.message || ''), /contentType no coincide/i);
+        assert.equal(createCalls, 0);
+    } finally {
+        ProductVariant.findByPk = originalFindByPk;
+        r2Service.headPublicObject = originalHead;
+        productImagesRepository.createProductImage = originalCreate;
+        r2.publicBaseUrl = originalPublicBaseUrl;
+    }
+});
+
 test('registerProductImage rejects invalid byteSize', async () => {
     const originalFindByPk = ProductVariant.findByPk;
     const originalPublicBaseUrl = r2.publicBaseUrl;
@@ -253,12 +391,62 @@ test('registerProductImage rejects missing R2 object and does not persist', asyn
         });
 
         assert.equal(res.error, 'bad_request');
+        assert.equal(res.code, 'register_object_missing');
         assert.match(String(res.message || ''), /no existe en r2/i);
         assert.equal(createCalls, 0);
     } finally {
         ProductVariant.findByPk = originalFindByPk;
         r2Service.headPublicObject = originalHead;
         productImagesRepository.createProductImage = originalCreate;
+        r2.publicBaseUrl = originalPublicBaseUrl;
+    }
+});
+
+test('register failure keeps existing gallery state unchanged', async () => {
+    const originalFindByPk = ProductVariant.findByPk;
+    const originalHead = r2Service.headPublicObject;
+    const originalCreate = productImagesRepository.createProductImage;
+    const originalList = productImagesRepository.listProductImages;
+    const originalPublicBaseUrl = r2.publicBaseUrl;
+
+    const rows = [
+        { id: 1, productVariantId: 123, imageKey: 'variants/123/existing.webp', sortOrder: 0 },
+    ];
+
+    try {
+        ProductVariant.findByPk = async (id) => ({
+            get() {
+                return { id };
+            },
+        });
+        r2.publicBaseUrl = 'https://assets.example.com';
+        r2Service.headPublicObject = async () => ({ exists: false, status: 404 });
+        productImagesRepository.createProductImage = async (data) => {
+            rows.push({ id: 2, ...data });
+            return data;
+        };
+        productImagesRepository.listProductImages = async () => rows.map((item) => ({ ...item }));
+
+        const before = await productImagesService.listProductImages(123);
+        assert.equal(before.error, undefined);
+        assert.equal(before.data.length, 1);
+
+        const failed = await productImagesService.registerProductImage(123, {
+            imageKey: 'variants/123/new.webp',
+            contentType: 'image/webp',
+            byteSize: 123,
+        });
+        assert.equal(failed.error, 'bad_request');
+
+        const after = await productImagesService.listProductImages(123);
+        assert.equal(after.error, undefined);
+        assert.equal(after.data.length, 1);
+        assert.equal(after.data[0].imageKey, 'variants/123/existing.webp');
+    } finally {
+        ProductVariant.findByPk = originalFindByPk;
+        r2Service.headPublicObject = originalHead;
+        productImagesRepository.createProductImage = originalCreate;
+        productImagesRepository.listProductImages = originalList;
         r2.publicBaseUrl = originalPublicBaseUrl;
     }
 });

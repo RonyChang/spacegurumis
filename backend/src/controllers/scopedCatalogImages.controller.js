@@ -8,11 +8,16 @@ function parseId(value) {
     return parsed;
 }
 
-function badRequest(res, message) {
+function badRequest(res, message, code) {
+    const errorItem = { message: message || 'Solicitud invalida' };
+    if (code) {
+        errorItem.code = code;
+    }
+
     return res.status(400).json({
         data: null,
         message: message || 'Solicitud invalida',
-        errors: [{ message: message || 'Solicitud invalida' }],
+        errors: [errorItem],
         meta: {},
     });
 }
@@ -39,7 +44,7 @@ function jsonOk(res, data, message = 'OK', status = 200) {
 
 function mapServiceError(result, res, next, fallbackMessage) {
     if (result.error === 'bad_request') {
-        return badRequest(res, result.message || 'Solicitud invalida');
+        return badRequest(res, result.message || 'Solicitud invalida', result.code);
     }
     if (result.error === 'not_found') {
         return notFound(res, result.message || 'No encontrado');

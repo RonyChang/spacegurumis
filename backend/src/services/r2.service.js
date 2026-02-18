@@ -127,6 +127,14 @@ function buildPublicUrl(publicBaseUrl, imageKey) {
     return `${base}/${String(imageKey).replace(/^\/+/, '')}`;
 }
 
+function ensurePublicBaseUrlConfigured() {
+    const base = String(r2.publicBaseUrl || '').trim().replace(/\/+$/, '');
+    if (!base) {
+        throw new Error('R2_PUBLIC_BASE_URL no configurado');
+    }
+    return base;
+}
+
 function validateImageUploadRequest({ contentType, byteSize }) {
     const normalizedContentType = normalizeContentType(contentType);
     if (!normalizedContentType) {
@@ -304,7 +312,11 @@ function presignCatalogImageUpload({
     }
 
     const imageKey = buildScopedImageKey(scope, entityId, contentType);
-    const publicUrl = buildPublicUrl(r2.publicBaseUrl, imageKey);
+    const publicBaseUrl = ensurePublicBaseUrlConfigured();
+    const publicUrl = buildPublicUrl(publicBaseUrl, imageKey);
+    if (!publicUrl) {
+        throw new Error('No se pudo derivar publicUrl');
+    }
 
     const presigned = presignPutObject({
         endpoint: r2.endpoint,
@@ -317,8 +329,13 @@ function presignCatalogImageUpload({
         contentType,
     });
 
+    const uploadUrl = String(presigned && presigned.uploadUrl ? presigned.uploadUrl : '').trim();
+    if (!uploadUrl) {
+        throw new Error('No se pudo generar uploadUrl presignado');
+    }
+
     return {
-        uploadUrl: presigned.uploadUrl,
+        uploadUrl,
         imageKey,
         publicUrl,
         expiresInSeconds: presigned.expiresInSeconds,
@@ -335,7 +352,11 @@ function presignSiteAssetUpload({ slot, contentType, byteSize }) {
     }
 
     const imageKey = buildSiteAssetKey(slot, contentType);
-    const publicUrl = buildPublicUrl(r2.publicBaseUrl, imageKey);
+    const publicBaseUrl = ensurePublicBaseUrlConfigured();
+    const publicUrl = buildPublicUrl(publicBaseUrl, imageKey);
+    if (!publicUrl) {
+        throw new Error('No se pudo derivar publicUrl');
+    }
 
     const presigned = presignPutObject({
         endpoint: r2.endpoint,
@@ -348,8 +369,13 @@ function presignSiteAssetUpload({ slot, contentType, byteSize }) {
         contentType,
     });
 
+    const uploadUrl = String(presigned && presigned.uploadUrl ? presigned.uploadUrl : '').trim();
+    if (!uploadUrl) {
+        throw new Error('No se pudo generar uploadUrl presignado');
+    }
+
     return {
-        uploadUrl: presigned.uploadUrl,
+        uploadUrl,
         imageKey,
         publicUrl,
         expiresInSeconds: presigned.expiresInSeconds,

@@ -55,6 +55,115 @@ test('scoped catalog image routes include auth/admin and csrf on mutating endpoi
     assert.ok(productDeleteNames.includes('csrfRequired'));
 });
 
+test('scoped presign endpoints return complete contract for category and product scopes', async () => {
+    const originalFindCategoryById = scopedCatalogImagesRepository.findCategoryById;
+    const originalFindProductById = scopedCatalogImagesRepository.findProductById;
+    const originalR2 = {
+        endpoint: r2.endpoint,
+        bucket: r2.bucket,
+        accessKeyId: r2.accessKeyId,
+        secretAccessKey: r2.secretAccessKey,
+        region: r2.region,
+        publicBaseUrl: r2.publicBaseUrl,
+        presignExpiresSeconds: r2.presignExpiresSeconds,
+        allowedImageContentTypes: [...r2.allowedImageContentTypes],
+        maxImageBytes: r2.maxImageBytes,
+    };
+
+    try {
+        scopedCatalogImagesRepository.findCategoryById = async (id) => ({ id, name: 'Cat' });
+        scopedCatalogImagesRepository.findProductById = async (id) => ({ id, categoryId: 20, name: 'Prod' });
+
+        r2.endpoint = 'https://example.r2.cloudflarestorage.com';
+        r2.bucket = 'spacegurumis';
+        r2.accessKeyId = 'AKIDEXAMPLE';
+        r2.secretAccessKey = 'secret';
+        r2.region = 'auto';
+        r2.publicBaseUrl = 'https://assets.spacegurumis.lat';
+        r2.presignExpiresSeconds = 120;
+        r2.allowedImageContentTypes = ['image/webp'];
+        r2.maxImageBytes = 1024 * 1024;
+
+        const category = await scopedCatalogImagesService.presignCategoryImage(10, {
+            contentType: 'image/webp',
+            byteSize: 2048,
+        });
+        assert.equal(category.error, undefined);
+        assert.ok(category.data);
+        assert.ok(String(category.data.uploadUrl || '').includes('X-Amz-Signature='));
+        assert.match(String(category.data.imageKey || ''), /^categories\/10\/[0-9a-f-]{36}\.webp$/);
+        assert.equal(
+            String(category.data.publicUrl || '').startsWith('https://assets.spacegurumis.lat/categories/10/'),
+            true
+        );
+
+        const product = await scopedCatalogImagesService.presignProductImage(30, {
+            contentType: 'image/webp',
+            byteSize: 2048,
+        }, {
+            categoryId: 20,
+        });
+        assert.equal(product.error, undefined);
+        assert.ok(product.data);
+        assert.ok(String(product.data.uploadUrl || '').includes('X-Amz-Signature='));
+        assert.match(String(product.data.imageKey || ''), /^products\/30\/[0-9a-f-]{36}\.webp$/);
+        assert.equal(
+            String(product.data.publicUrl || '').startsWith('https://assets.spacegurumis.lat/products/30/'),
+            true
+        );
+    } finally {
+        scopedCatalogImagesRepository.findCategoryById = originalFindCategoryById;
+        scopedCatalogImagesRepository.findProductById = originalFindProductById;
+        r2.endpoint = originalR2.endpoint;
+        r2.bucket = originalR2.bucket;
+        r2.accessKeyId = originalR2.accessKeyId;
+        r2.secretAccessKey = originalR2.secretAccessKey;
+        r2.region = originalR2.region;
+        r2.publicBaseUrl = originalR2.publicBaseUrl;
+        r2.presignExpiresSeconds = originalR2.presignExpiresSeconds;
+        r2.allowedImageContentTypes = originalR2.allowedImageContentTypes;
+        r2.maxImageBytes = originalR2.maxImageBytes;
+    }
+});
+
+test('scoped presign endpoints fail fast on incomplete R2 configuration', async () => {
+    const originalFindCategoryById = scopedCatalogImagesRepository.findCategoryById;
+    const originalFindProductById = scopedCatalogImagesRepository.findProductById;
+    const originalEndpoint = r2.endpoint;
+    const originalPublicBaseUrl = r2.publicBaseUrl;
+
+    try {
+        scopedCatalogImagesRepository.findCategoryById = async (id) => ({ id, name: 'Cat' });
+        scopedCatalogImagesRepository.findProductById = async (id) => ({ id, categoryId: 20, name: 'Prod' });
+
+        r2.endpoint = '';
+        r2.publicBaseUrl = 'https://assets.spacegurumis.lat';
+
+        const missingEndpoint = await scopedCatalogImagesService.presignCategoryImage(10, {
+            contentType: 'image/webp',
+            byteSize: 2048,
+        });
+        assert.equal(missingEndpoint.error, 'bad_request');
+        assert.match(String(missingEndpoint.message || ''), /R2 endpoint no configurado/i);
+
+        r2.endpoint = 'https://example.r2.cloudflarestorage.com';
+        r2.publicBaseUrl = '';
+        const missingPublicBase = await scopedCatalogImagesService.presignProductImage(30, {
+            contentType: 'image/webp',
+            byteSize: 2048,
+        }, {
+            categoryId: 20,
+        });
+        assert.equal(missingPublicBase.error, 'bad_request');
+        assert.match(String(missingPublicBase.message || ''), /R2_PUBLIC_BASE_URL no configurado/i);
+    } finally {
+        scopedCatalogImagesRepository.findCategoryById = originalFindCategoryById;
+        scopedCatalogImagesRepository.findProductById = originalFindProductById;
+        r2.endpoint = originalEndpoint;
+        r2.publicBaseUrl = originalPublicBaseUrl;
+    }
+});
+
 test('category scope keeps a single effective image after replacement', async () => {
     const originalTransaction = sequelize.transaction;
     const originalFindCategoryById = scopedCatalogImagesRepository.findCategoryById;
