@@ -57,13 +57,13 @@ beforeEach(() => {
         errors: [],
         meta: { total: 1, page: 1, pageSize: 9, totalPages: 1 },
     });
-    listSiteAssetsBySlotMock.mockImplementation(async (slot: string) => ({
+    listSiteAssetsBySlotMock.mockImplementation(async () => ({
         data: [{
-            id: slot === 'home-banner' ? 2 : 1,
-            slot,
-            title: slot === 'home-banner' ? 'Banner principal' : 'Hero principal',
-            altText: slot === 'home-banner' ? 'Banner principal home' : 'Hero principal home',
-            publicUrl: `https://assets.spacegurumis.lat/site/${slot}.webp`,
+            id: 1,
+            slot: 'home-hero',
+            title: 'Hero principal',
+            altText: 'Hero principal home',
+            publicUrl: 'https://assets.spacegurumis.lat/site/home-hero.webp',
             sortOrder: 0,
         }],
         message: 'OK',
@@ -88,9 +88,9 @@ test('renders decorative assets from site-assets API', async () => {
 
     const hero = await screen.findByRole('img', { name: 'Hero principal home' });
     expect(hero).toHaveAttribute('src', 'https://assets.spacegurumis.lat/site/home-hero.webp');
-
-    const banner = await screen.findByRole('img', { name: 'Banner principal home' });
-    expect(banner).toHaveAttribute('src', 'https://assets.spacegurumis.lat/site/home-banner.webp');
+    expect(listSiteAssetsBySlotMock).toHaveBeenCalledTimes(1);
+    expect(listSiteAssetsBySlotMock).toHaveBeenCalledWith('home-hero');
+    expect(listSiteAssetsBySlotMock).not.toHaveBeenCalledWith('home-banner');
 });
 
 test('uses SSR initial data without duplicate first-load fetches', async () => {
@@ -115,14 +115,6 @@ test('uses SSR initial data without duplicate first-load fetches', async () => {
                         title: 'Hero SSR',
                         altText: 'Hero desde SSR',
                         publicUrl: 'https://assets.spacegurumis.lat/site/hero-ssr.webp',
-                        sortOrder: 0,
-                    }],
-                    banner: [{
-                        id: 12,
-                        slot: 'home-banner',
-                        title: 'Banner SSR',
-                        altText: 'Banner desde SSR',
-                        publicUrl: 'https://assets.spacegurumis.lat/site/banner-ssr.webp',
                         sortOrder: 0,
                     }],
                 },
@@ -192,13 +184,34 @@ test('detail action points to dedicated product detail route with sku query', as
 
 test('uses decorative fallback assets when site-assets API fails', async () => {
     listSiteAssetsBySlotMock.mockRejectedValueOnce(new Error('network'));
-    listSiteAssetsBySlotMock.mockRejectedValueOnce(new Error('network'));
 
     render(<HomePage />);
 
-    const hero = await screen.findByRole('img', { name: 'Coleccion destacada de Spacegurumis' });
-    expect(hero).toHaveAttribute('src', '/site-fallback-hero.svg');
+    const hero = await screen.findByRole('img', { name: 'Banner de pedidos especiales de Spacegurumis' });
+    expect(hero).toHaveAttribute('src', '/pedidos-especiales.jpeg');
+    expect(screen.getByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)')).toBeInTheDocument();
+});
 
-    const banner = await screen.findByRole('img', { name: 'Banner de pedidos especiales de Spacegurumis' });
-    expect(banner).toHaveAttribute('src', '/site-fallback-banner.svg');
+test('uses decorative fallback assets when site-assets API returns empty data', async () => {
+    listSiteAssetsBySlotMock.mockResolvedValueOnce({
+        data: [],
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+
+    render(<HomePage />);
+
+    const hero = await screen.findByRole('img', { name: 'Banner de pedidos especiales de Spacegurumis' });
+    expect(hero).toHaveAttribute('src', '/pedidos-especiales.jpeg');
+    expect(screen.getByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)')).toBeInTheDocument();
+});
+
+test('keeps the special-order CTA available without secondary banner slot dependency', async () => {
+    render(<HomePage />);
+
+    await screen.findByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)');
+    expect(listSiteAssetsBySlotMock).toHaveBeenCalledTimes(1);
+    expect(listSiteAssetsBySlotMock).not.toHaveBeenCalledWith('home-banner');
+    expect(screen.getByRole('link', { name: 'Contactar por WhatsApp' })).toBeInTheDocument();
 });

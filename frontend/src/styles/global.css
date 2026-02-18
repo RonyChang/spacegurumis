@@ -258,55 +258,10 @@ h3 {
     margin-bottom: 18px;
 }
 
-.hero-slot {
-    position: relative;
-    margin: 0;
-    min-height: 220px;
-    border-radius: var(--radius);
-    overflow: hidden;
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-}
-
-.hero-slot img {
-    width: 100%;
-    height: 100%;
-    min-height: 220px;
-    object-fit: cover;
-    display: block;
-}
-
-.hero-slot__overlay {
-    position: absolute;
-    inset: auto 0 0 0;
-    padding: 18px;
-    background: linear-gradient(180deg, rgba(18, 18, 18, 0.02), rgba(18, 18, 18, 0.75));
-    color: #fff;
-    display: grid;
-    gap: 6px;
-}
-
-.hero-slot__overlay h2 {
-    margin: 0;
-}
-
-.hero-slot__eyebrow {
-    margin: 0;
-    font-size: 12px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    opacity: 0.9;
-}
-
-.banner-slot {
-    display: grid;
-    gap: 12px;
-}
-
 .promo-cta {
     position: relative;
     margin: 0;
-    min-height: 220px;
+    min-height: 260px;
     border-radius: var(--radius);
     border: 1px solid var(--border);
     overflow: hidden;
@@ -316,7 +271,7 @@ h3 {
 .promo-cta img {
     width: 100%;
     height: 100%;
-    min-height: 220px;
+    min-height: 260px;
     object-fit: cover;
     display: block;
 }
@@ -345,8 +300,8 @@ h3 {
 
 .promo-cta__overlay h3 {
     margin: 0;
-    max-width: 38ch;
-    font-size: clamp(20px, 2vw, 28px);
+    max-width: 18ch;
+    font-size: clamp(24px, 2.4vw, 37px);
     line-height: 1.2;
 }
 
@@ -373,27 +328,12 @@ h3 {
     color: rgba(255, 255, 255, 0.9);
 }
 
-.banner-slot__card {
-    margin: 0;
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--surface-2);
-    overflow: hidden;
-    display: grid;
+.home-hero__promo {
+    min-height: 360px;
 }
 
-.banner-slot__card img {
-    width: 100%;
-    aspect-ratio: 4 / 3;
-    object-fit: cover;
-    display: block;
-}
-
-.banner-slot__card p {
-    margin: 0;
-    padding: 10px 12px;
-    font-size: 13px;
-    color: var(--muted);
+.home-hero__promo img {
+    min-height: 360px;
 }
 
 .page__header {
@@ -1040,12 +980,6 @@ h3 {
     margin: 0;
 }
 
-.home-banners {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-    gap: 12px;
-}
-
 .storefront-card {
     gap: 8px;
 }
@@ -1212,10 +1146,6 @@ h3 {
         grid-template-columns: 1fr;
     }
 
-    .home-banners {
-        grid-template-columns: 1fr;
-    }
-
     .shop-shell__layout {
         grid-template-columns: 1fr;
     }
@@ -1228,15 +1158,11 @@ h3 {
         grid-template-columns: 1fr;
     }
 
-    .hero-slot {
-        min-height: 200px;
-    }
-
-    .promo-cta {
+    .home-hero__promo {
         min-height: 230px;
     }
 
-    .promo-cta img {
+    .home-hero__promo img {
         min-height: 230px;
     }
 
@@ -1245,7 +1171,8 @@ h3 {
     }
 
     .promo-cta__overlay h3 {
-        font-size: 21px;
+        font-size: 24px;
+        max-width: 22ch;
     }
 
     .form__grid {

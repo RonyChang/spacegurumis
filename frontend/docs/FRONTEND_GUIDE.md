@@ -51,11 +51,11 @@ Rutas principales (paridad con el frontend anterior):
 
 La portada (`/`) consume assets decorativos por slot desde backend:
 - `GET /api/v1/site-assets/home-hero`
-- `GET /api/v1/site-assets/home-banner`
 
 Comportamiento:
-- Si la API retorna datos: se renderizan imagenes remotas (R2) ordenadas.
-- Si falla la API o retorna vacio: se usan fallbacks locales (`/site-fallback-hero.svg` y `/site-fallback-banner.svg`).
+- Si la API retorna datos: se renderiza imagen remota (R2) del hero principal.
+- Si falla la API o retorna vacio: se usa fallback local del hero (`/pedidos-especiales.jpeg`).
+- El CTA principal de pedidos especiales vive en el hero; el slot secundario `home-banner` es opcional y no bloquea conversion.
 
 ## 4) Variables de entorno (.env) y `PUBLIC_*`
 

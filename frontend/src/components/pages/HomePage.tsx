@@ -11,24 +11,13 @@ import Button from '../ui/Button';
 
 const CATALOG_PAGE_SIZE = 12;
 const HERO_SLOT = 'home-hero';
-const BANNER_SLOT = 'home-banner';
 const HERO_FALLBACK_ASSETS: SiteAsset[] = [
     {
         id: 0,
         slot: HERO_SLOT,
-        title: 'Nuevos modelos cada semana',
-        altText: 'Coleccion destacada de Spacegurumis',
-        publicUrl: '/site-fallback-hero.svg',
-        sortOrder: 0,
-    },
-];
-const BANNER_FALLBACK_ASSETS: SiteAsset[] = [
-    {
-        id: 0,
-        slot: BANNER_SLOT,
         title: 'Haz tu pedido especial',
         altText: 'Banner de pedidos especiales de Spacegurumis',
-        publicUrl: '/site-fallback-banner.svg',
+        publicUrl: '/pedidos-especiales.jpeg',
         sortOrder: 0,
     },
 ];
@@ -43,7 +32,7 @@ export type HomeCatalogInitialState = {
 
 export type HomeSlotsInitialState = {
     hero: SiteAsset[];
-    banner: SiteAsset[];
+    banner?: SiteAsset[];
 };
 
 export type HomePageInitialData = {
@@ -123,9 +112,6 @@ export default function HomePage({ initialData = null }: HomePageProps) {
     const [heroAssets, setHeroAssets] = useState<SiteAsset[]>(
         normalizeSiteAssets(initialSlots ? initialSlots.hero : undefined, HERO_FALLBACK_ASSETS)
     );
-    const [bannerAssets, setBannerAssets] = useState<SiteAsset[]>(
-        normalizeSiteAssets(initialSlots ? initialSlots.banner : undefined, BANNER_FALLBACK_ASSETS)
-    );
 
     const [message, setMessage] = useState('');
     const [messageTone, setMessageTone] = useState<'info' | 'success' | 'error'>('info');
@@ -144,21 +130,11 @@ export default function HomePage({ initialData = null }: HomePageProps) {
     }
 
     async function loadDecorativeAssets() {
-        const [heroResult, bannerResult] = await Promise.allSettled([
-            listSiteAssetsBySlot(HERO_SLOT),
-            listSiteAssetsBySlot(BANNER_SLOT),
-        ]);
-
-        if (heroResult.status === 'fulfilled') {
-            setHeroAssets(normalizeSiteAssets(heroResult.value.data, HERO_FALLBACK_ASSETS));
-        } else {
+        try {
+            const heroResult = await listSiteAssetsBySlot(HERO_SLOT);
+            setHeroAssets(normalizeSiteAssets(heroResult.data, HERO_FALLBACK_ASSETS));
+        } catch {
             setHeroAssets(HERO_FALLBACK_ASSETS);
-        }
-
-        if (bannerResult.status === 'fulfilled') {
-            setBannerAssets(normalizeSiteAssets(bannerResult.value.data, BANNER_FALLBACK_ASSETS));
-        } else {
-            setBannerAssets(BANNER_FALLBACK_ASSETS);
         }
     }
 
@@ -212,8 +188,6 @@ export default function HomePage({ initialData = null }: HomePageProps) {
     }, [initialCatalog, initialSlots]);
 
     const heroAsset = heroAssets[0] || HERO_FALLBACK_ASSETS[0];
-    const promoBannerAsset = bannerAssets[0] || BANNER_FALLBACK_ASSETS[0];
-    const secondaryBannerAsset = bannerAssets[1] || null;
     const promoWhatsappUrl = buildWhatsappUrl(HOME_PROMO_WHATSAPP_MESSAGE);
     const featuredCollections = useMemo(() => buildFeaturedCollections(variants), [variants]);
     const highlightedVariants = useMemo(() => variants.slice(0, 4), [variants]);
@@ -231,21 +205,41 @@ export default function HomePage({ initialData = null }: HomePageProps) {
                     </p>
                     <div className="home-hero__actions">
                         <a className="button button--primary" href="/shop" data-nav-prefetch>Adoptar ahora</a>
-                        <a className="button button--ghost" href="#pedido-especial">Pedido personalizado</a>
+                        <a className="button button--ghost" href="/shop" data-nav-prefetch>Ver catalogo</a>
                     </div>
                 </div>
 
-                <article className="hero-slot">
+                <article id="hero-pedido-especial" className="promo-cta home-hero__promo">
                     <img
                         src={heroAsset.publicUrl}
-                        alt={heroAsset.altText || 'Hero decorativo'}
+                        alt={heroAsset.altText || 'Banner de pedidos especiales de Spacegurumis'}
                         loading="eager"
                         decoding="async"
                         onError={imgErrorToPlaceholder}
                     />
-                    <div className="hero-slot__overlay">
-                        <p className="hero-slot__eyebrow">Nueva coleccion</p>
-                        <h2>{heroAsset.title || 'Modelos limitados cada semana'}</h2>
+                    <div className="promo-cta__overlay">
+                        <p className="promo-cta__eyebrow">Pedidos especiales</p>
+                        <h3>{HOME_PROMO_COPY}</h3>
+                        {promoWhatsappUrl ? (
+                            <a
+                                className="button button--whatsapp promo-cta__button"
+                                href={promoWhatsappUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                Contactar por WhatsApp
+                            </a>
+                        ) : (
+                            <div className="promo-cta__fallback" role="status" aria-live="polite">
+                                <span
+                                    className="button button--ghost promo-cta__button promo-cta__button--disabled"
+                                    aria-disabled="true"
+                                >
+                                    WhatsApp no disponible
+                                </span>
+                                <p>Por ahora no podemos abrir WhatsApp desde este dispositivo.</p>
+                            </div>
+                        )}
                     </div>
                 </article>
             </section>
@@ -321,55 +315,6 @@ export default function HomePage({ initialData = null }: HomePageProps) {
                         </article>
                     ))}
                 </div>
-            </section>
-
-            <section id="pedido-especial" className="home-banners">
-                <article className="promo-cta">
-                    <img
-                        src={promoBannerAsset.publicUrl}
-                        alt={promoBannerAsset.altText || 'Banner promocional de pedidos especiales'}
-                        loading="lazy"
-                        decoding="async"
-                        onError={imgErrorToPlaceholder}
-                    />
-                    <div className="promo-cta__overlay">
-                        <p className="promo-cta__eyebrow">Pedidos especiales</p>
-                        <h3>{HOME_PROMO_COPY}</h3>
-                        {promoWhatsappUrl ? (
-                            <a
-                                className="button button--whatsapp promo-cta__button"
-                                href={promoWhatsappUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                Contactar por WhatsApp
-                            </a>
-                        ) : (
-                            <div className="promo-cta__fallback" role="status" aria-live="polite">
-                                <span
-                                    className="button button--ghost promo-cta__button promo-cta__button--disabled"
-                                    aria-disabled="true"
-                                >
-                                    WhatsApp no disponible
-                                </span>
-                                <p>Por ahora no podemos abrir WhatsApp desde este dispositivo.</p>
-                            </div>
-                        )}
-                    </div>
-                </article>
-
-                {secondaryBannerAsset ? (
-                    <article className="banner-slot__card">
-                        <img
-                            src={secondaryBannerAsset.publicUrl}
-                            alt={secondaryBannerAsset.altText || 'Banner decorativo'}
-                            loading="lazy"
-                            decoding="async"
-                            onError={imgErrorToPlaceholder}
-                        />
-                        {secondaryBannerAsset.title ? <p>{secondaryBannerAsset.title}</p> : null}
-                    </article>
-                ) : null}
             </section>
         </section>
     );
