@@ -32,6 +32,11 @@ test('catalog.controller.listVariants returns imageUrl in variant items', async 
                 price: 89.9,
                 stockAvailable: 5,
                 imageUrl: 'https://assets.spacegurumis.lat/variants/1/a.webp',
+                imageDeliveryUrls: {
+                    thumb: 'https://img.spacegurumis.lat/thumb/variants/1/a.webp',
+                    card: 'https://img.spacegurumis.lat/card/variants/1/a.webp',
+                    detail: 'https://img.spacegurumis.lat/detail/variants/1/a.webp',
+                },
                 product: { id: 10, name: 'Amigurumi', slug: 'amigurumi' },
                 category: { id: 20, name: 'Peluche', slug: 'peluche' },
             }],
@@ -48,6 +53,11 @@ test('catalog.controller.listVariants returns imageUrl in variant items', async 
 
         assert.equal(res.statusCode, 200);
         assert.equal(res.payload.data[0].imageUrl, 'https://assets.spacegurumis.lat/variants/1/a.webp');
+        assert.deepEqual(res.payload.data[0].imageDeliveryUrls, {
+            thumb: 'https://img.spacegurumis.lat/thumb/variants/1/a.webp',
+            card: 'https://img.spacegurumis.lat/card/variants/1/a.webp',
+            detail: 'https://img.spacegurumis.lat/detail/variants/1/a.webp',
+        });
     } finally {
         catalogService.listVariants = originalListVariants;
     }
@@ -66,8 +76,22 @@ test('catalog.controller.getVariantDetail returns images array', async () => {
             product: { id: 10, name: 'Amigurumi', slug: 'amigurumi', description: 'desc' },
             category: { id: 20, name: 'Peluche', slug: 'peluche' },
             images: [
-                { url: 'https://assets.spacegurumis.lat/variants/1/a.webp', altText: 'A', sortOrder: 0 },
-                { url: 'https://assets.spacegurumis.lat/variants/1/b.webp', altText: 'B', sortOrder: 1 },
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/1/a.webp',
+                    altText: 'A',
+                    sortOrder: 0,
+                    deliveryUrls: {
+                        thumb: 'https://img.spacegurumis.lat/thumb/variants/1/a.webp',
+                        card: 'https://img.spacegurumis.lat/card/variants/1/a.webp',
+                        detail: 'https://img.spacegurumis.lat/detail/variants/1/a.webp',
+                    },
+                },
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/1/b.webp',
+                    altText: 'B',
+                    sortOrder: 1,
+                    deliveryUrls: null,
+                },
             ],
         });
 
@@ -83,6 +107,11 @@ test('catalog.controller.getVariantDetail returns images array', async () => {
         assert.equal(Array.isArray(res.payload.data.images), true);
         assert.equal(res.payload.data.images.length, 2);
         assert.equal(res.payload.data.images[0].url, 'https://assets.spacegurumis.lat/variants/1/a.webp');
+        assert.deepEqual(res.payload.data.images[0].deliveryUrls, {
+            thumb: 'https://img.spacegurumis.lat/thumb/variants/1/a.webp',
+            card: 'https://img.spacegurumis.lat/card/variants/1/a.webp',
+            detail: 'https://img.spacegurumis.lat/detail/variants/1/a.webp',
+        });
     } finally {
         catalogService.getVariantBySku = originalGetVariantBySku;
     }

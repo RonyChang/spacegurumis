@@ -281,6 +281,51 @@ test('uses detail preset for main gallery image and thumb preset for thumbnails'
     );
 });
 
+test('prioritizes API-provided delivery URLs and preserves multi-stage fallback chain', async () => {
+    getCatalogVariantDetailMock.mockResolvedValueOnce({
+        data: makeVariantDetail('SKU-RED', 'Rojo', {
+            images: [
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/sku-red/main.webp',
+                    altText: 'Rojo principal',
+                    sortOrder: 0,
+                    deliveryUrls: {
+                        thumb: 'https://img.spacegurumis.lat/thumb/variants/sku-red/main.webp?exp=1200&sig=abc',
+                        card: 'https://img.spacegurumis.lat/card/variants/sku-red/main.webp?exp=1200&sig=abc',
+                        detail: 'https://img.spacegurumis.lat/detail/variants/sku-red/main.webp?exp=1200&sig=abc',
+                    },
+                },
+            ],
+        }),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    await screen.findByText('SKU: SKU-RED');
+    const mainImage = document.querySelector('.gallery__main img') as HTMLImageElement | null;
+    expect(mainImage).not.toBeNull();
+    if (!mainImage) {
+        return;
+    }
+
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/main.webp?exp=1200&sig=abc'
+    );
+
+    fireEvent.error(mainImage);
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/main.webp'
+    );
+
+    fireEvent.error(mainImage);
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://assets.spacegurumis.lat/variants/sku-red/main.webp'
+    );
+});
+
 test('renders gallery arrows for multi-image galleries and keeps thumbnail sync with wrap-around', async () => {
     getCatalogVariantDetailMock.mockResolvedValueOnce({
         data: makeVariantDetail('SKU-RED', 'Rojo', {

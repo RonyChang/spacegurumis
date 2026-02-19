@@ -189,6 +189,7 @@ test('listVariants includes safe best-seller highlight when includeHighlights is
             sku: 'ALIEN-004',
             variantName: 'Alien verde',
             imageUrl: 'https://assets.spacegurumis.lat/variants/alien-004/main.webp',
+            imageDeliveryUrls: null,
             product: {
                 id: 3,
                 name: 'Aliens',

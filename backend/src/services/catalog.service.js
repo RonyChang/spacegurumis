@@ -1,4 +1,5 @@
 const catalogRepository = require('../repositories/catalog.repository');
+const { buildImageDeliveryUrls } = require('./imageDelivery.service');
 
 // Convierte centimos a soles para las respuestas del API.
 function centsToSoles(value) {
@@ -56,6 +57,18 @@ async function listProducts(filters, pagination) {
 function normalizeFacetTotal(value) {
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function mapCatalogImageWithDelivery(image) {
+    if (!image || typeof image !== 'object') {
+        return null;
+    }
+
+    const sourceUrl = typeof image.url === 'string' ? image.url : '';
+    return {
+        ...image,
+        deliveryUrls: buildImageDeliveryUrls(sourceUrl || null),
+    };
 }
 
 function buildSelectedFilters(filters) {
@@ -119,6 +132,7 @@ function buildSafeBestSellerHighlight(highlight) {
         sku,
         variantName: highlight.variantName || null,
         imageUrl: highlight.imageUrl || null,
+        imageDeliveryUrls: buildImageDeliveryUrls(highlight.imageUrl || null),
         product: {
             id: Number(highlight.productId) || 0,
             name: productName,
@@ -147,6 +161,7 @@ async function listVariants(filters, pagination, options = {}) {
             price: centsToSoles(row.priceCents),
             stockAvailable,
             imageUrl: row.imageUrl || null,
+            imageDeliveryUrls: buildImageDeliveryUrls(row.imageUrl || null),
             product: {
                 id: row.productId,
                 name: row.productName,
@@ -242,7 +257,9 @@ async function getProductBySlug(slug) {
             name: productRow.categoryName,
             slug: productRow.categorySlug,
         },
-        images: Array.isArray(productRow.images) ? productRow.images : [],
+        images: (Array.isArray(productRow.images) ? productRow.images : [])
+            .map(mapCatalogImageWithDelivery)
+            .filter(Boolean),
         variants,
     };
 }
@@ -272,7 +289,9 @@ async function getVariantBySku(sku) {
             name: row.categoryName,
             slug: row.categorySlug,
         },
-        images: Array.isArray(row.images) ? row.images : [],
+        images: (Array.isArray(row.images) ? row.images : [])
+            .map(mapCatalogImageWithDelivery)
+            .filter(Boolean),
     };
 }
 

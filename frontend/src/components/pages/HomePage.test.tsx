@@ -8,6 +8,7 @@ const listCatalogVariantsMock = vi.fn();
 const listSiteAssetsBySlotMock = vi.fn();
 const addCartItemMock = vi.fn();
 const writeGuestCartMock = vi.fn();
+const buildCatalogImageDeliveryUrlMock = vi.fn();
 
 vi.mock('../../lib/api/catalog', () => ({
     listCatalogVariants: (...args: unknown[]) => listCatalogVariantsMock(...args),
@@ -26,6 +27,10 @@ vi.mock('../../lib/cart/guestCart', () => ({
     writeGuestCart: (...args: unknown[]) => writeGuestCartMock(...args),
 }));
 
+vi.mock('../../lib/media/imageDelivery', () => ({
+    buildCatalogImageDeliveryUrl: (...args: unknown[]) => buildCatalogImageDeliveryUrlMock(...args),
+}));
+
 function makeVariant(overrides: Record<string, unknown> = {}) {
     return {
         id: 1,
@@ -42,6 +47,7 @@ function makeVariant(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
     vi.clearAllMocks();
+    buildCatalogImageDeliveryUrlMock.mockImplementation((url: string) => url);
     addCartItemMock.mockResolvedValue({});
     listCatalogVariantsMock.mockResolvedValue({
         data: [makeVariant()],
@@ -194,4 +200,64 @@ test('decorative site-assets failure does not block best-seller hero flow', asyn
     expect(heroImage).toHaveAttribute('src', 'https://assets.spacegurumis.lat/variants/1/red.webp');
     expect(screen.getByRole('heading', { level: 2, name: 'Rojo' })).toBeInTheDocument();
     expect(listSiteAssetsBySlotMock).toHaveBeenCalledWith('home-hero');
+});
+
+test('prioritizes API-provided delivery URLs over local transform builder', async () => {
+    listCatalogVariantsMock.mockResolvedValueOnce({
+        data: [makeVariant({
+            imageUrl: 'https://assets.spacegurumis.lat/variants/1/red.webp',
+            imageDeliveryUrls: {
+                thumb: 'https://img.spacegurumis.lat/thumb/variants/1/red.webp',
+                card: 'https://img.spacegurumis.lat/card/variants/1/red.webp',
+                detail: 'https://img.spacegurumis.lat/detail/variants/1/red.webp',
+            },
+        })],
+        message: 'OK',
+        errors: [],
+        meta: {
+            total: 1,
+            page: 1,
+            pageSize: 12,
+            totalPages: 1,
+            highlights: {
+                bestSeller: {
+                    sku: 'SKU-RED',
+                    variantName: 'Rojo',
+                    imageUrl: 'https://assets.spacegurumis.lat/variants/1/red.webp',
+                    imageDeliveryUrls: {
+                        thumb: 'https://img.spacegurumis.lat/thumb/variants/1/red.webp',
+                        card: 'https://img.spacegurumis.lat/card/variants/1/red.webp',
+                        detail: 'https://img.spacegurumis.lat/detail/variants/1/red.webp',
+                    },
+                    product: { id: 99, name: 'Amigurumi', slug: 'amigurumi' },
+                    category: { id: 10, name: 'Peluche', slug: 'peluche' },
+                },
+            },
+        },
+    });
+
+    render(<HomePage />);
+
+    const hero = screen.getByLabelText('Producto destacado');
+    const heroImage = await within(hero).findByRole('img', { name: 'Amigurumi - Rojo' });
+    expect(heroImage).toHaveAttribute('src', 'https://img.spacegurumis.lat/card/variants/1/red.webp');
+    expect(buildCatalogImageDeliveryUrlMock).not.toHaveBeenCalled();
+});
+
+test('falls back to local transform builder when API delivery URLs are missing', async () => {
+    buildCatalogImageDeliveryUrlMock.mockImplementation((url: string, preset: string) => {
+        const parsed = new URL(url);
+        const key = parsed.pathname.replace(/^\/+/, '');
+        return `https://img.spacegurumis.lat/${preset}/${key}`;
+    });
+
+    render(<HomePage />);
+
+    const hero = screen.getByLabelText('Producto destacado');
+    const heroImage = await within(hero).findByRole('img', { name: 'Amigurumi - Rojo' });
+    expect(heroImage).toHaveAttribute('src', 'https://img.spacegurumis.lat/card/variants/1/red.webp');
+    expect(buildCatalogImageDeliveryUrlMock).toHaveBeenCalledWith(
+        'https://assets.spacegurumis.lat/variants/1/red.webp',
+        'card'
+    );
 });

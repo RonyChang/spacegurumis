@@ -8,6 +8,7 @@ import {
 } from '../../lib/api/catalog';
 import { readGuestCart, writeGuestCart } from '../../lib/cart/guestCart';
 import { formatPrice, formatVariantTitle } from '../../lib/format';
+import { buildCatalogImageDeliveryUrl } from '../../lib/media/imageDelivery';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 
@@ -47,6 +48,30 @@ function buildDetailUrl(variant: CatalogVariant) {
     const encodedSlug = encodeURIComponent(slug);
     const encodedSku = encodeURIComponent(sku);
     return `/products/${encodedSlug}?sku=${encodedSku}`;
+}
+
+function pickPreferredPresetUrl(source: unknown) {
+    if (typeof source !== 'string') {
+        return '';
+    }
+
+    const value = source.trim();
+    return value || '';
+}
+
+function resolveVariantImageUrl(variant: CatalogVariant | null | undefined, preset: 'thumb' | 'card' | 'detail') {
+    const preferred = pickPreferredPresetUrl(variant?.imageDeliveryUrls?.[preset]);
+    if (preferred) {
+        return preferred;
+    }
+
+    const original = pickPreferredPresetUrl(variant?.imageUrl);
+    if (!original) {
+        return '/placeholder-product.svg';
+    }
+
+    const transformed = buildCatalogImageDeliveryUrl(original, preset);
+    return pickPreferredPresetUrl(transformed) || original;
 }
 
 function sortVariants(items: CatalogVariant[], sortMode: SortMode) {
@@ -425,7 +450,7 @@ export default function ShopPage({ initialData = null }: ShopPageProps) {
                             <article className="card storefront-card" key={variant.sku}>
                                 <div className="card__thumb storefront-card__thumb">
                                     <img
-                                        src={variant.imageUrl || '/placeholder-product.svg'}
+                                        src={resolveVariantImageUrl(variant, 'card')}
                                         alt={formatVariantTitle(variant)}
                                         loading={index < 3 ? 'eager' : 'lazy'}
                                         decoding="async"

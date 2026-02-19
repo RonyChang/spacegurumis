@@ -1,4 +1,4 @@
-const { parseCsv, parsePositiveInt } = require('../utils/env');
+const { parseBoolean, parseCsv, parsePositiveInt } = require('../utils/env');
 const { normalizeOrigin } = require('../utils/origin');
 
 const NODE_ENV_VALUES = new Set(['development', 'test', 'production']);
@@ -87,6 +87,40 @@ function parseOptionalFrontendBaseUrl(rawEnv) {
     return normalizeOrigin(value);
 }
 
+function parseOptionalHttpUrl(rawEnv, variableName, fallback = '') {
+    const value = readOptional(rawEnv, variableName, fallback);
+    if (!value) {
+        return '';
+    }
+
+    let parsed;
+    try {
+        parsed = new URL(value);
+    } catch {
+        throw createEnvError(variableName, 'URL invalida');
+    }
+
+    if (!HTTP_PROTOCOLS.has(parsed.protocol)) {
+        throw createEnvError(variableName, 'debe usar protocolo http:// o https://');
+    }
+
+    return value.replace(/\/+$/, '');
+}
+
+function parseOptionalHost(rawEnv, variableName, fallback = '') {
+    const value = readOptional(rawEnv, variableName, fallback);
+    if (!value) {
+        return '';
+    }
+
+    const host = normalizeHost(value);
+    if (!host) {
+        throw createEnvError(variableName, 'host invalido');
+    }
+
+    return host;
+}
+
 function parseOptionalPositiveInt(rawEnv, variableName, fallback) {
     const rawValue = readOptional(rawEnv, variableName, '');
     if (!rawValue) {
@@ -117,6 +151,68 @@ function normalizeBaseUrl(value) {
     }
 
     return raw.replace(/\/+$/, '');
+}
+
+function normalizeHost(value) {
+    const raw = String(value || '').trim();
+    if (!raw) {
+        return '';
+    }
+
+    try {
+        const withProtocol = raw.includes('://') ? raw : `https://${raw}`;
+        const parsed = new URL(withProtocol);
+        return parsed.host.toLowerCase().replace(/\.$/, '');
+    } catch {
+        return '';
+    }
+}
+
+function parseImageDeliveryConfig(rawEnv) {
+    const transformBaseUrl = parseOptionalHttpUrl(rawEnv, 'IMAGE_DELIVERY_TRANSFORM_BASE_URL', '');
+    const sourceHost = parseOptionalHost(rawEnv, 'IMAGE_DELIVERY_SOURCE_HOST', '');
+    const requireSignedUrls = parseBoolean(
+        readOptional(rawEnv, 'IMAGE_DELIVERY_REQUIRE_SIGNED_URLS', 'false'),
+        false
+    );
+    const signingSecret = readOptional(rawEnv, 'IMAGE_DELIVERY_SIGNING_SECRET', '');
+    const signedUrlTtlSeconds = parsePositiveInt(rawEnv.IMAGE_DELIVERY_SIGNED_URL_TTL_SECONDS, 900);
+
+    if ((transformBaseUrl && !sourceHost) || (!transformBaseUrl && sourceHost)) {
+        throw createEnvError(
+            'IMAGE_DELIVERY_TRANSFORM_BASE_URL',
+            'define IMAGE_DELIVERY_TRANSFORM_BASE_URL y IMAGE_DELIVERY_SOURCE_HOST juntos'
+        );
+    }
+
+    if (requireSignedUrls && !transformBaseUrl) {
+        throw createEnvError(
+            'IMAGE_DELIVERY_REQUIRE_SIGNED_URLS',
+            'requiere IMAGE_DELIVERY_TRANSFORM_BASE_URL configurado'
+        );
+    }
+
+    if (requireSignedUrls && !sourceHost) {
+        throw createEnvError(
+            'IMAGE_DELIVERY_REQUIRE_SIGNED_URLS',
+            'requiere IMAGE_DELIVERY_SOURCE_HOST configurado'
+        );
+    }
+
+    if (requireSignedUrls && !signingSecret) {
+        throw createEnvError(
+            'IMAGE_DELIVERY_SIGNING_SECRET',
+            'variable requerida cuando IMAGE_DELIVERY_REQUIRE_SIGNED_URLS=true'
+        );
+    }
+
+    return {
+        transformBaseUrl,
+        sourceHost,
+        requireSignedUrls,
+        signingSecret,
+        signedUrlTtlSeconds,
+    };
 }
 
 function parseRequiredOrigins(rawEnv, variableName) {
@@ -209,10 +305,13 @@ function buildIntegrationConfig(rawEnv = process.env) {
         callbackUrl: readOptional(rawEnv, 'GOOGLE_CALLBACK_URL', ''),
     };
 
+    const imageDelivery = parseImageDeliveryConfig(rawEnv);
+
     return {
         stripe,
         r2,
         googleOAuth,
+        imageDelivery,
     };
 }
 

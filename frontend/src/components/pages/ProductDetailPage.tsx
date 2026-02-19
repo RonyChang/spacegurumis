@@ -28,7 +28,9 @@ export type ProductDetailInitialData = {
 type GalleryImage = {
     originalUrl: string;
     detailUrl: string;
+    detailFallbackUrl: string;
     thumbUrl: string;
+    thumbFallbackUrl: string;
     altText: string | null;
     sortOrder: number | null;
 };
@@ -59,12 +61,32 @@ function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
     img.src = PLACEHOLDER_IMAGE_URL;
 }
 
+function pickPreferredUrl(source: unknown): string {
+    if (typeof source !== 'string') {
+        return '';
+    }
+
+    const value = source.trim();
+    return value || '';
+}
+
 function handleGalleryImageError(event: React.SyntheticEvent<HTMLImageElement>) {
     const img = event.currentTarget;
+    const secondaryUrl = img.dataset.fallbackSecondary || '';
     const originalUrl = img.dataset.fallbackOriginal || '';
     const currentStage = img.dataset.fallbackStage || 'original';
 
-    if (currentStage === 'transform' && originalUrl && !sameImageUrl(img.src, originalUrl)) {
+    if (currentStage === 'transform' && secondaryUrl && !sameImageUrl(img.src, secondaryUrl)) {
+        img.dataset.fallbackStage = 'transform-secondary';
+        img.src = secondaryUrl;
+        return;
+    }
+
+    if (
+        (currentStage === 'transform' || currentStage === 'transform-secondary')
+        && originalUrl
+        && !sameImageUrl(img.src, originalUrl)
+    ) {
         img.dataset.fallbackStage = 'original';
         img.src = originalUrl;
         return;
@@ -296,8 +318,16 @@ export default function ProductDetailPage({
         if (variantImages.length) {
             return variantImages.map((image) => ({
                 originalUrl: image.url,
-                detailUrl: buildCatalogImageDeliveryUrl(image.url, 'detail'),
-                thumbUrl: buildCatalogImageDeliveryUrl(image.url, 'thumb'),
+                detailUrl: pickPreferredUrl(image.deliveryUrls && image.deliveryUrls.detail)
+                    || buildCatalogImageDeliveryUrl(image.url, 'detail'),
+                detailFallbackUrl: pickPreferredUrl(image.deliveryUrls && image.deliveryUrls.detail)
+                    ? buildCatalogImageDeliveryUrl(image.url, 'detail')
+                    : '',
+                thumbUrl: pickPreferredUrl(image.deliveryUrls && image.deliveryUrls.thumb)
+                    || buildCatalogImageDeliveryUrl(image.url, 'thumb'),
+                thumbFallbackUrl: pickPreferredUrl(image.deliveryUrls && image.deliveryUrls.thumb)
+                    ? buildCatalogImageDeliveryUrl(image.url, 'thumb')
+                    : '',
                 altText: image.altText || null,
                 sortOrder: image.sortOrder ?? null,
             }));
@@ -308,7 +338,9 @@ export default function ProductDetailPage({
             return [{
                 originalUrl: PLACEHOLDER_IMAGE_URL,
                 detailUrl: PLACEHOLDER_IMAGE_URL,
+                detailFallbackUrl: '',
                 thumbUrl: PLACEHOLDER_IMAGE_URL,
+                thumbFallbackUrl: '',
                 altText: null,
                 sortOrder: 0,
             }];
@@ -320,8 +352,16 @@ export default function ProductDetailPage({
         if (productImages.length) {
             return productImages.map((image) => ({
                 originalUrl: image.url,
-                detailUrl: buildCatalogImageDeliveryUrl(image.url, 'detail'),
-                thumbUrl: buildCatalogImageDeliveryUrl(image.url, 'thumb'),
+                detailUrl: pickPreferredUrl(image.deliveryUrls && image.deliveryUrls.detail)
+                    || buildCatalogImageDeliveryUrl(image.url, 'detail'),
+                detailFallbackUrl: pickPreferredUrl(image.deliveryUrls && image.deliveryUrls.detail)
+                    ? buildCatalogImageDeliveryUrl(image.url, 'detail')
+                    : '',
+                thumbUrl: pickPreferredUrl(image.deliveryUrls && image.deliveryUrls.thumb)
+                    || buildCatalogImageDeliveryUrl(image.url, 'thumb'),
+                thumbFallbackUrl: pickPreferredUrl(image.deliveryUrls && image.deliveryUrls.thumb)
+                    ? buildCatalogImageDeliveryUrl(image.url, 'thumb')
+                    : '',
                 altText: image.altText || null,
                 sortOrder: image.sortOrder ?? null,
             }));
@@ -330,7 +370,9 @@ export default function ProductDetailPage({
         return [{
             originalUrl: PLACEHOLDER_IMAGE_URL,
             detailUrl: PLACEHOLDER_IMAGE_URL,
+            detailFallbackUrl: '',
             thumbUrl: PLACEHOLDER_IMAGE_URL,
+            thumbFallbackUrl: '',
             altText: null,
             sortOrder: 0,
         }];
@@ -503,6 +545,7 @@ export default function ProductDetailPage({
                                     alt={currentImage.altText || variantTitle}
                                     loading="eager"
                                     decoding="async"
+                                    data-fallback-secondary={currentImage.detailFallbackUrl}
                                     data-fallback-original={currentImage.originalUrl}
                                     data-fallback-stage={
                                         currentImage.detailUrl !== currentImage.originalUrl
@@ -527,6 +570,7 @@ export default function ProductDetailPage({
                                                 alt={image.altText || variantTitle}
                                                 loading="lazy"
                                                 decoding="async"
+                                                data-fallback-secondary={image.thumbFallbackUrl}
                                                 data-fallback-original={image.originalUrl}
                                                 data-fallback-stage={
                                                     image.thumbUrl !== image.originalUrl

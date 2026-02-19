@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { buildRuntimeConfig } = require('../src/config/envContract');
+const { buildRuntimeConfig, buildIntegrationConfig } = require('../src/config/envContract');
 
 function buildBaseEnv() {
     return {
@@ -129,4 +129,43 @@ test('buildRuntimeConfig fails when PASSWORD_RESET_URL_PATH does not start with 
         () => buildRuntimeConfig(env),
         /PASSWORD_RESET_URL_PATH: debe empezar con "\/"/
     );
+});
+
+test('buildIntegrationConfig rejects partial image delivery config', () => {
+    assert.throws(
+        () => buildIntegrationConfig({
+            IMAGE_DELIVERY_TRANSFORM_BASE_URL: 'https://img.spacegurumis.lat',
+            IMAGE_DELIVERY_SOURCE_HOST: '',
+        }),
+        /IMAGE_DELIVERY_TRANSFORM_BASE_URL: define IMAGE_DELIVERY_TRANSFORM_BASE_URL y IMAGE_DELIVERY_SOURCE_HOST juntos/
+    );
+});
+
+test('buildIntegrationConfig rejects signed mode without signing secret', () => {
+    assert.throws(
+        () => buildIntegrationConfig({
+            IMAGE_DELIVERY_TRANSFORM_BASE_URL: 'https://img.spacegurumis.lat',
+            IMAGE_DELIVERY_SOURCE_HOST: 'assets.spacegurumis.lat',
+            IMAGE_DELIVERY_REQUIRE_SIGNED_URLS: 'true',
+            IMAGE_DELIVERY_SIGNING_SECRET: '',
+        }),
+        /IMAGE_DELIVERY_SIGNING_SECRET: variable requerida/
+    );
+});
+
+test('buildIntegrationConfig parses image delivery config when signed mode is disabled', () => {
+    const config = buildIntegrationConfig({
+        IMAGE_DELIVERY_TRANSFORM_BASE_URL: 'https://img.spacegurumis.lat/',
+        IMAGE_DELIVERY_SOURCE_HOST: 'https://assets.spacegurumis.lat',
+        IMAGE_DELIVERY_REQUIRE_SIGNED_URLS: 'false',
+        IMAGE_DELIVERY_SIGNED_URL_TTL_SECONDS: '1200',
+    });
+
+    assert.deepEqual(config.imageDelivery, {
+        transformBaseUrl: 'https://img.spacegurumis.lat',
+        sourceHost: 'assets.spacegurumis.lat',
+        requireSignedUrls: false,
+        signingSecret: '',
+        signedUrlTtlSeconds: 1200,
+    });
 });

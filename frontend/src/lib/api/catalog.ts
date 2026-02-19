@@ -56,11 +56,18 @@ export type CatalogProductLite = {
     slug: string;
 };
 
+export type CatalogImageDeliveryUrls = {
+    thumb: string | null;
+    card: string | null;
+    detail: string | null;
+};
+
 export type CatalogVariant = {
     id: number;
     sku: string;
     variantName: string | null;
     imageUrl?: string | null;
+    imageDeliveryUrls?: CatalogImageDeliveryUrls | null;
     price: number | null;
     stockAvailable: number;
     product: CatalogProductLite;
@@ -71,6 +78,7 @@ export type CatalogVariantHighlight = {
     sku: string;
     variantName: string | null;
     imageUrl: string | null;
+    imageDeliveryUrls?: CatalogImageDeliveryUrls | null;
     product: CatalogProductLite;
     category: CatalogCategory;
 };
@@ -79,6 +87,7 @@ export type CatalogImage = {
     url: string;
     altText: string | null;
     sortOrder: number | null;
+    deliveryUrls?: CatalogImageDeliveryUrls | null;
 };
 
 export type CatalogProductVariantSummary = {

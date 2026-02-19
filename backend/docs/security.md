@@ -60,6 +60,17 @@ No se soportan aliases legacy `AUTH_COOKIE_*` para nombres/atributos base de coo
 - `PASSWORD_RESET_REQUEST_COOLDOWN_SECONDS`: cooldown por usuario para evitar spam de correos (default `60`).
 - `PASSWORD_RESET_URL_PATH`: path frontend usado en el enlace de recovery (default `/reset-password`).
 
+**Image delivery firmado (opcional):**
+
+- `IMAGE_DELIVERY_TRANSFORM_BASE_URL`: host base del Worker (ej. `https://img.spacegurumis.lat`).
+- `IMAGE_DELIVERY_SOURCE_HOST`: host origen permitido para keys transformadas (ej. `assets.spacegurumis.lat`).
+- `IMAGE_DELIVERY_REQUIRE_SIGNED_URLS`: `true|false`.
+- `IMAGE_DELIVERY_SIGNING_SECRET`: obligatorio cuando `IMAGE_DELIVERY_REQUIRE_SIGNED_URLS=true`.
+- `IMAGE_DELIVERY_SIGNED_URL_TTL_SECONDS`: TTL de firma (`exp`) en segundos.
+
+Regla de hardening:
+- Si `IMAGE_DELIVERY_REQUIRE_SIGNED_URLS=true` y falta secreto/base/source host, el backend falla en arranque.
+
 **CSRF:**
 
 - `CSRF_ALLOWED_ORIGINS`: allowlist de origins (coma-separado, sin `/` al final), sin fallback implicito.

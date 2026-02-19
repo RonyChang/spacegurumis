@@ -9,6 +9,7 @@ import {
 import { listSiteAssetsBySlot, type SiteAsset } from '../../lib/api/siteAssets';
 import { formatPrice, formatVariantTitle } from '../../lib/format';
 import { readGuestCart, writeGuestCart } from '../../lib/cart/guestCart';
+import { buildCatalogImageDeliveryUrl } from '../../lib/media/imageDelivery';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 
@@ -78,6 +79,48 @@ function buildDetailUrl(variant: CatalogVariant) {
     return `/products/${encodedSlug}?sku=${encodedSku}`;
 }
 
+function pickPreferredPresetUrl(source: unknown) {
+    if (typeof source !== 'string') {
+        return '';
+    }
+
+    const value = source.trim();
+    return value || '';
+}
+
+function resolveVariantImageUrl(variant: CatalogVariant | null | undefined, preset: 'thumb' | 'card' | 'detail') {
+    const preferred = pickPreferredPresetUrl(variant?.imageDeliveryUrls?.[preset]);
+    if (preferred) {
+        return preferred;
+    }
+
+    const original = pickPreferredPresetUrl(variant?.imageUrl);
+    if (!original) {
+        return HERO_IMAGE_PLACEHOLDER;
+    }
+
+    const transformed = buildCatalogImageDeliveryUrl(original, preset);
+    return pickPreferredPresetUrl(transformed) || original;
+}
+
+function resolveHighlightImageUrl(
+    highlight: CatalogVariantHighlight | null | undefined,
+    preset: 'thumb' | 'card' | 'detail'
+) {
+    const preferred = pickPreferredPresetUrl(highlight?.imageDeliveryUrls?.[preset]);
+    if (preferred) {
+        return preferred;
+    }
+
+    const original = pickPreferredPresetUrl(highlight?.imageUrl);
+    if (!original) {
+        return '';
+    }
+
+    const transformed = buildCatalogImageDeliveryUrl(original, preset);
+    return pickPreferredPresetUrl(transformed) || original;
+}
+
 function buildFeaturedCollections(variants: CatalogVariant[]) {
     const grouped = new Map<string, FeaturedCollection>();
 
@@ -94,7 +137,7 @@ function buildFeaturedCollections(variants: CatalogVariant[]) {
             slug,
             name: categoryName,
             total: 1,
-            imageUrl: variant.imageUrl || HERO_IMAGE_PLACEHOLDER,
+            imageUrl: resolveVariantImageUrl(variant, 'card'),
         });
     }
 
@@ -116,7 +159,7 @@ function resolveHeroContent(
     const highlightSku = String(highlight?.sku || '').trim();
     const highlightVariantName = String(highlight?.variantName || '').trim();
     const highlightProductName = String(highlight?.product?.name || '').trim();
-    const highlightImageUrl = String(highlight?.imageUrl || '').trim();
+    const highlightImageUrl = resolveHighlightImageUrl(highlight, 'card');
 
     if (highlightSku && highlightProductName && highlightImageUrl) {
         return {
@@ -133,7 +176,7 @@ function resolveHeroContent(
         const productName = String(fallbackVariant.product?.name || 'Producto');
         return {
             source: 'catalog',
-            imageUrl: String(fallbackVariant.imageUrl || HERO_IMAGE_PLACEHOLDER),
+            imageUrl: resolveVariantImageUrl(fallbackVariant, 'card'),
             altText: `${productName} - ${fallbackName}`,
             variantName: fallbackName,
         };
@@ -362,7 +405,7 @@ export default function HomePage({ initialData = null }: HomePageProps) {
                         <article className="card storefront-card" key={variant.sku}>
                             <div className="card__thumb storefront-card__thumb">
                                 <img
-                                    src={variant.imageUrl || HERO_IMAGE_PLACEHOLDER}
+                                    src={resolveVariantImageUrl(variant, 'card')}
                                     alt={formatVariantTitle(variant)}
                                     loading={index < 2 ? 'eager' : 'lazy'}
                                     decoding="async"

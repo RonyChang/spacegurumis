@@ -91,11 +91,17 @@ La galeria de detalle (`/products/:slug`) usa presets fijos de Cloudflare Worker
 - Miniaturas: preset `thumb`
 - Cards de coleccion/listado que adopten worker: preset `card`
 
+Prioridad de fuentes de imagen en storefront:
+1. URL de delivery enviada por API (`deliveryUrls` / `imageDeliveryUrls`)
+2. URL transformada local calculada por frontend
+3. URL original del asset
+4. Placeholder local
+
 Reglas de seguridad del frontend:
 - Solo transforma `http/https`.
 - Solo transforma si el host de origen coincide con `PUBLIC_IMAGE_SOURCE_HOST`.
 - Solo transforma keys con prefijos permitidos (`variants/`, `products/`, `categories/`, `site/`).
-- Si una imagen transformada falla, aplica fallback escalonado: `transformada -> original -> /placeholder-product.svg`.
+- Si una imagen transformada falla, aplica fallback escalonado: `delivery -> transform local -> original -> /placeholder-product.svg`.
 
 Regla de contrato importante:
 - El "letterbox/pillarbox" (relleno cuando sobra espacio en 1:1) se define en el Worker, no en CSS.
@@ -104,7 +110,8 @@ Regla de contrato importante:
 Operacion/infra recomendada:
 - Ruta de worker activa: `img.spacegurumis.lat/*`.
 - DNS de `img` debe estar en modo proxied (nube naranja).
-- Presets esperados (`thumb`, `card`, `detail`) con `fit: "contain"` y `background: "rgb(0,0,0)"`.
+- Presets esperados (`thumb`, `card`, `detail`) con `fit: "pad"` y `background: "rgb(0,0,0)"`.
+- Para modo pro anti-abuso, habilitar signed mode (backend emite `exp/sig`, worker valida firma).
 - Referencia: `frontend/docs/CLOUDFLARE_IMAGE_WORKER_CONTRACT.md`.
 
 Smoke operativo asociado:
