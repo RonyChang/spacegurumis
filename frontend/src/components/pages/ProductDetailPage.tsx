@@ -289,6 +289,7 @@ export default function ProductDetailPage({
     );
 
     const gallery = useMemo<GalleryImage[]>(() => {
+        const hasSelectedVariant = Boolean(selectedVariant && selectedVariant.sku);
         const variantImages = selectedVariant && Array.isArray(selectedVariant.images)
             ? selectedVariant.images.filter((item) => item && item.url)
             : [];
@@ -300,6 +301,17 @@ export default function ProductDetailPage({
                 altText: image.altText || null,
                 sortOrder: image.sortOrder ?? null,
             }));
+        }
+
+        // En detalle de variante, no reutilizar imagenes de producto si la variante no tiene galeria.
+        if (hasSelectedVariant) {
+            return [{
+                originalUrl: PLACEHOLDER_IMAGE_URL,
+                detailUrl: PLACEHOLDER_IMAGE_URL,
+                thumbUrl: PLACEHOLDER_IMAGE_URL,
+                altText: null,
+                sortOrder: 0,
+            }];
         }
 
         const productImages = product && Array.isArray(product.images)

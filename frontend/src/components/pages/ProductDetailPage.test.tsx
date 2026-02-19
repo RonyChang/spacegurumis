@@ -197,6 +197,34 @@ test('renders placeholder image when selected variant and product gallery are em
     expect(buildCatalogImageDeliveryUrlMock).not.toHaveBeenCalled();
 });
 
+test('does not reuse product gallery when selected variant has no images', async () => {
+    getCatalogProductDetailMock.mockResolvedValueOnce({
+        data: makeProductDetail({
+            images: [
+                {
+                    url: 'https://assets.spacegurumis.lat/products/amigurumi/base.webp',
+                    altText: 'Base producto',
+                    sortOrder: 0,
+                },
+            ],
+        }),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+    getCatalogVariantDetailMock.mockResolvedValueOnce({
+        data: makeVariantDetail('SKU-RED', 'Rojo', { images: [] }),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    const image = await screen.findByRole('img', { name: 'Amigurumi - Rojo' });
+    expect(image).toHaveAttribute('src', '/placeholder-product.svg');
+});
+
 test('uses detail preset for main gallery image and thumb preset for thumbnails', async () => {
     getCatalogVariantDetailMock.mockResolvedValueOnce({
         data: makeVariantDetail('SKU-RED', 'Rojo', {

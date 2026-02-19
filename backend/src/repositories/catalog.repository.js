@@ -2,6 +2,7 @@ const { Op, fn, col, literal } = require('sequelize');
 const {
     Category,
     Product,
+    ProductImage,
     ProductVariant,
     Inventory,
     Order,
@@ -376,15 +377,11 @@ async function fetchProductBySlug(slug) {
         return null;
     }
 
-    const firstVariant = await ProductVariant.findOne({
+    const images = await ProductImage.findAll({
         where: { productId: product.id },
-        attributes: ['id'],
-        order: [['id', 'ASC']],
+        attributes: ['id', 'publicUrl', 'altText', 'sortOrder'],
+        order: [['sortOrder', 'ASC'], ['id', 'ASC']],
     });
-
-    const images = firstVariant
-        ? await productImagesRepository.listProductImages(firstVariant.id)
-        : [];
 
     return {
         id: product.id,
