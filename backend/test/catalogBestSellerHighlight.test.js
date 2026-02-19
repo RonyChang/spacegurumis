@@ -51,7 +51,9 @@ test('fetchBestSellerHighlight applies deterministic tie-break ordering', async 
         assert.equal(capturedOptions.order.length, 3);
         assert.equal(capturedOptions.order[0][1], 'DESC');
         assert.equal(capturedOptions.order[1][1], 'DESC');
-        assert.deepEqual(capturedOptions.order[2], ['productVariantId', 'ASC']);
+        assert.equal(capturedOptions.order[2][1], 'ASC');
+        const tieBreakExpression = String(capturedOptions.order[2][0].val || capturedOptions.order[2][0]);
+        assert.equal(tieBreakExpression.includes('product_variant_id'), true);
     } finally {
         OrderItem.findAll = originalFindAll;
         productImagesRepository.fetchPrimaryImageUrls = originalFetchPrimaryImageUrls;

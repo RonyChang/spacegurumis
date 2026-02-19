@@ -492,7 +492,7 @@ async function fetchProductVariants(productId) {
 async function fetchBestSellerHighlight() {
     const rankedRows = await OrderItem.findAll({
         attributes: [
-            'productVariantId',
+            [col('OrderItem.product_variant_id'), 'productVariantId'],
             [fn('SUM', col('OrderItem.quantity')), 'soldUnits'],
             [fn('MAX', col('order.updated_at')), 'lastSoldAt'],
         ],
@@ -532,7 +532,7 @@ async function fetchBestSellerHighlight() {
             },
         ],
         group: [
-            'OrderItem.productVariantId',
+            'OrderItem.product_variant_id',
             'variant.id',
             'variant.sku',
             'variant.variantName',
@@ -548,7 +548,7 @@ async function fetchBestSellerHighlight() {
         order: [
             [literal('"soldUnits"'), 'DESC'],
             [literal('"lastSoldAt"'), 'DESC'],
-            ['productVariantId', 'ASC'],
+            [literal('"OrderItem"."product_variant_id"'), 'ASC'],
         ],
         limit: 1,
         subQuery: false,
