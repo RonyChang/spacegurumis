@@ -100,6 +100,38 @@ function buildFacetMeta(facets, filters) {
     };
 }
 
+function buildSafeBestSellerHighlight(highlight) {
+    if (!highlight) {
+        return null;
+    }
+
+    const sku = String(highlight.sku || '').trim();
+    const productName = String(highlight.productName || '').trim();
+    const productSlug = String(highlight.productSlug || '').trim();
+    const categoryName = String(highlight.categoryName || '').trim();
+    const categorySlug = String(highlight.categorySlug || '').trim();
+
+    if (!sku || !productName || !productSlug || !categoryName || !categorySlug) {
+        return null;
+    }
+
+    return {
+        sku,
+        variantName: highlight.variantName || null,
+        imageUrl: highlight.imageUrl || null,
+        product: {
+            id: Number(highlight.productId) || 0,
+            name: productName,
+            slug: productSlug,
+        },
+        category: {
+            id: Number(highlight.categoryId) || 0,
+            name: categoryName,
+            slug: categorySlug,
+        },
+    };
+}
+
 async function listVariants(filters, pagination, options = {}) {
     const [rows, total] = await Promise.all([
         catalogRepository.fetchActiveVariants(filters, pagination),
@@ -136,25 +168,43 @@ async function listVariants(filters, pagination, options = {}) {
         totalPages,
     };
 
-    if (options.includeFacets) {
-        const [categories, products, priceRange] = await Promise.all([
-            catalogRepository.fetchVariantFacetCategories({
-                ...filters,
-                category: null,
-                product: null,
-            }),
-            catalogRepository.fetchVariantFacetProducts({
-                ...filters,
-                product: null,
-            }),
-            catalogRepository.fetchVariantFacetPriceRange({
-                ...filters,
-                minPrice: null,
-                maxPrice: null,
-            }),
-        ]);
+    const includeFacets = Boolean(options.includeFacets);
+    const includeHighlights = Boolean(options.includeHighlights);
+    const asyncMetaTasks = [];
 
-        meta.filters = buildFacetMeta({ categories, products, priceRange }, filters);
+    if (includeFacets) {
+        asyncMetaTasks.push((async () => {
+            const [categories, products, priceRange] = await Promise.all([
+                catalogRepository.fetchVariantFacetCategories({
+                    ...filters,
+                    category: null,
+                    product: null,
+                }),
+                catalogRepository.fetchVariantFacetProducts({
+                    ...filters,
+                    product: null,
+                }),
+                catalogRepository.fetchVariantFacetPriceRange({
+                    ...filters,
+                    minPrice: null,
+                    maxPrice: null,
+                }),
+            ]);
+
+            meta.filters = buildFacetMeta({ categories, products, priceRange }, filters);
+        })());
+    }
+
+    if (includeHighlights) {
+        asyncMetaTasks.push((async () => {
+            const bestSeller = await catalogRepository.fetchBestSellerHighlight();
+            const safeBestSeller = buildSafeBestSellerHighlight(bestSeller);
+            meta.highlights = { bestSeller: safeBestSeller };
+        })());
+    }
+
+    if (asyncMetaTasks.length > 0) {
+        await Promise.all(asyncMetaTasks);
     }
 
     return {

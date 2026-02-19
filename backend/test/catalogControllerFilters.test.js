@@ -41,6 +41,7 @@ test('catalog.controller.listVariants parses minPrice/maxPrice from soles to cen
                 minPrice: '10',
                 maxPrice: '30',
                 includeFacets: 'true',
+                includeHighlights: 'true',
             },
         };
         const res = makeRes();
@@ -59,7 +60,7 @@ test('catalog.controller.listVariants parses minPrice/maxPrice from soles to cen
             maxPrice: 3000,
         });
         assert.deepEqual(capturedOptions, { page: 1, pageSize: 12 });
-        assert.deepEqual(capturedFlags, { includeFacets: true });
+        assert.deepEqual(capturedFlags, { includeFacets: true, includeHighlights: true });
     } finally {
         catalogService.listVariants = originalListVariants;
     }

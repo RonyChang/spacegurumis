@@ -10,6 +10,7 @@ test('listVariants includes global facets metadata when includeFacets is enabled
     const originalFetchFacetCategories = catalogRepository.fetchVariantFacetCategories;
     const originalFetchFacetProducts = catalogRepository.fetchVariantFacetProducts;
     const originalFetchFacetPriceRange = catalogRepository.fetchVariantFacetPriceRange;
+    const originalFetchBestSellerHighlight = catalogRepository.fetchBestSellerHighlight;
 
     try {
         catalogRepository.fetchActiveVariants = async () => ([{
@@ -40,6 +41,7 @@ test('listVariants includes global facets metadata when includeFacets is enabled
             minPriceCents: 1800,
             maxPriceCents: 5200,
         });
+        catalogRepository.fetchBestSellerHighlight = async () => null;
 
         const result = await catalogService.listVariants(
             {
@@ -75,6 +77,7 @@ test('listVariants includes global facets metadata when includeFacets is enabled
         catalogRepository.fetchVariantFacetCategories = originalFetchFacetCategories;
         catalogRepository.fetchVariantFacetProducts = originalFetchFacetProducts;
         catalogRepository.fetchVariantFacetPriceRange = originalFetchFacetPriceRange;
+        catalogRepository.fetchBestSellerHighlight = originalFetchBestSellerHighlight;
     }
 });
 
@@ -84,8 +87,10 @@ test('listVariants skips facet queries when includeFacets is disabled', async ()
     const originalFetchFacetCategories = catalogRepository.fetchVariantFacetCategories;
     const originalFetchFacetProducts = catalogRepository.fetchVariantFacetProducts;
     const originalFetchFacetPriceRange = catalogRepository.fetchVariantFacetPriceRange;
+    const originalFetchBestSellerHighlight = catalogRepository.fetchBestSellerHighlight;
 
     let facetCalls = 0;
+    let highlightCalls = 0;
 
     try {
         catalogRepository.fetchActiveVariants = async () => ([]);
@@ -102,6 +107,10 @@ test('listVariants skips facet queries when includeFacets is disabled', async ()
             facetCalls += 1;
             return { minPriceCents: null, maxPriceCents: null };
         };
+        catalogRepository.fetchBestSellerHighlight = async () => {
+            highlightCalls += 1;
+            return null;
+        };
 
         const result = await catalogService.listVariants(
             { category: null, product: null, minPrice: null, maxPrice: null, q: null },
@@ -111,10 +120,92 @@ test('listVariants skips facet queries when includeFacets is disabled', async ()
 
         assert.equal(result.meta.totalPages, 0);
         assert.equal(result.meta.filters, undefined);
+        assert.equal(result.meta.highlights, undefined);
         assert.equal(facetCalls, 0);
+        assert.equal(highlightCalls, 0);
     } finally {
         catalogRepository.fetchActiveVariants = originalFetchVariants;
         catalogRepository.fetchActiveVariantsCount = originalFetchCount;
+        catalogRepository.fetchVariantFacetCategories = originalFetchFacetCategories;
+        catalogRepository.fetchVariantFacetProducts = originalFetchFacetProducts;
+        catalogRepository.fetchVariantFacetPriceRange = originalFetchFacetPriceRange;
+        catalogRepository.fetchBestSellerHighlight = originalFetchBestSellerHighlight;
+    }
+});
+
+test('listVariants includes safe best-seller highlight when includeHighlights is enabled', async () => {
+    const originalFetchVariants = catalogRepository.fetchActiveVariants;
+    const originalFetchCount = catalogRepository.fetchActiveVariantsCount;
+    const originalFetchBestSellerHighlight = catalogRepository.fetchBestSellerHighlight;
+    const originalFetchFacetCategories = catalogRepository.fetchVariantFacetCategories;
+    const originalFetchFacetProducts = catalogRepository.fetchVariantFacetProducts;
+    const originalFetchFacetPriceRange = catalogRepository.fetchVariantFacetPriceRange;
+
+    try {
+        catalogRepository.fetchActiveVariants = async () => ([{
+            id: 4,
+            sku: 'ALIEN-004',
+            variantName: 'Alien verde',
+            priceCents: 4100,
+            stock: 12,
+            reserved: 1,
+            imageUrl: 'https://assets.spacegurumis.lat/variants/alien-004/main.webp',
+            productId: 3,
+            productName: 'Aliens',
+            productSlug: 'aliens',
+            categoryId: 2,
+            categoryName: 'Catalogo',
+            categorySlug: 'catalogo',
+        }]);
+        catalogRepository.fetchActiveVariantsCount = async () => 1;
+        catalogRepository.fetchVariantFacetCategories = async () => [];
+        catalogRepository.fetchVariantFacetProducts = async () => [];
+        catalogRepository.fetchVariantFacetPriceRange = async () => ({
+            minPriceCents: null,
+            maxPriceCents: null,
+        });
+        catalogRepository.fetchBestSellerHighlight = async () => ({
+            sku: 'ALIEN-004',
+            variantName: 'Alien verde',
+            imageUrl: 'https://assets.spacegurumis.lat/variants/alien-004/main.webp',
+            productId: 3,
+            productName: 'Aliens',
+            productSlug: 'aliens',
+            categoryId: 2,
+            categoryName: 'Catalogo',
+            categorySlug: 'catalogo',
+            soldUnits: 42,
+            revenueCents: 172200,
+        });
+
+        const result = await catalogService.listVariants(
+            { category: null, product: null, minPrice: null, maxPrice: null, q: null },
+            { page: 1, pageSize: 12 },
+            { includeHighlights: true }
+        );
+
+        assert.ok(result.meta.highlights);
+        assert.deepEqual(result.meta.highlights.bestSeller, {
+            sku: 'ALIEN-004',
+            variantName: 'Alien verde',
+            imageUrl: 'https://assets.spacegurumis.lat/variants/alien-004/main.webp',
+            product: {
+                id: 3,
+                name: 'Aliens',
+                slug: 'aliens',
+            },
+            category: {
+                id: 2,
+                name: 'Catalogo',
+                slug: 'catalogo',
+            },
+        });
+        assert.equal('soldUnits' in result.meta.highlights.bestSeller, false);
+        assert.equal('revenueCents' in result.meta.highlights.bestSeller, false);
+    } finally {
+        catalogRepository.fetchActiveVariants = originalFetchVariants;
+        catalogRepository.fetchActiveVariantsCount = originalFetchCount;
+        catalogRepository.fetchBestSellerHighlight = originalFetchBestSellerHighlight;
         catalogRepository.fetchVariantFacetCategories = originalFetchFacetCategories;
         catalogRepository.fetchVariantFacetProducts = originalFetchFacetProducts;
         catalogRepository.fetchVariantFacetPriceRange = originalFetchFacetPriceRange;

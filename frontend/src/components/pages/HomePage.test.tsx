@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import HomePage from './HomePage';
@@ -8,7 +8,6 @@ const listCatalogVariantsMock = vi.fn();
 const listSiteAssetsBySlotMock = vi.fn();
 const addCartItemMock = vi.fn();
 const writeGuestCartMock = vi.fn();
-const buildWhatsappUrlMock = vi.fn();
 
 vi.mock('../../lib/api/catalog', () => ({
     listCatalogVariants: (...args: unknown[]) => listCatalogVariantsMock(...args),
@@ -20,10 +19,6 @@ vi.mock('../../lib/api/siteAssets', () => ({
 
 vi.mock('../../lib/api/cart', () => ({
     addCartItem: (...args: unknown[]) => addCartItemMock(...args),
-}));
-
-vi.mock('../../lib/whatsapp', () => ({
-    buildWhatsappUrl: (...args: unknown[]) => buildWhatsappUrlMock(...args),
 }));
 
 vi.mock('../../lib/cart/guestCart', () => ({
@@ -47,50 +42,37 @@ function makeVariant(overrides: Record<string, unknown> = {}) {
 
 beforeEach(() => {
     vi.clearAllMocks();
-    buildWhatsappUrlMock.mockImplementation(
-        (message: string) => `https://wa.me/51999999999?text=${encodeURIComponent(message)}`
-    );
     addCartItemMock.mockResolvedValue({});
     listCatalogVariantsMock.mockResolvedValue({
         data: [makeVariant()],
         message: 'OK',
         errors: [],
-        meta: { total: 1, page: 1, pageSize: 9, totalPages: 1 },
+        meta: {
+            total: 1,
+            page: 1,
+            pageSize: 12,
+            totalPages: 1,
+            highlights: {
+                bestSeller: {
+                    sku: 'SKU-RED',
+                    variantName: 'Rojo',
+                    imageUrl: 'https://assets.spacegurumis.lat/variants/1/red.webp',
+                    product: { id: 99, name: 'Amigurumi', slug: 'amigurumi' },
+                    category: { id: 10, name: 'Peluche', slug: 'peluche' },
+                },
+            },
+        },
     });
-    listSiteAssetsBySlotMock.mockImplementation(async () => ({
-        data: [{
-            id: 1,
-            slot: 'home-hero',
-            title: 'Hero principal',
-            altText: 'Hero principal home',
-            publicUrl: 'https://assets.spacegurumis.lat/site/home-hero.webp',
-            sortOrder: 0,
-        }],
+    listSiteAssetsBySlotMock.mockResolvedValue({
+        data: [],
         message: 'OK',
         errors: [],
         meta: {},
-    }));
+    });
 });
 
 afterEach(() => {
     cleanup();
-});
-
-test('renders catalog thumbnail using imageUrl when available', async () => {
-    render(<HomePage />);
-
-    const thumb = await screen.findByRole('img', { name: 'Amigurumi - Rojo' });
-    expect(thumb).toHaveAttribute('src', 'https://assets.spacegurumis.lat/variants/1/red.webp');
-});
-
-test('renders decorative assets from site-assets API', async () => {
-    render(<HomePage />);
-
-    const hero = await screen.findByRole('img', { name: 'Hero principal home' });
-    expect(hero).toHaveAttribute('src', 'https://assets.spacegurumis.lat/site/home-hero.webp');
-    expect(listSiteAssetsBySlotMock).toHaveBeenCalledTimes(1);
-    expect(listSiteAssetsBySlotMock).toHaveBeenCalledWith('home-hero');
-    expect(listSiteAssetsBySlotMock).not.toHaveBeenCalledWith('home-banner');
 });
 
 test('uses SSR initial data without duplicate first-load fetches', async () => {
@@ -107,16 +89,18 @@ test('uses SSR initial data without duplicate first-load fetches', async () => {
                     variants: [variant],
                     page: 1,
                     totalPages: 1,
+                    highlights: {
+                        bestSeller: {
+                            sku: 'SKU-SSR',
+                            variantName: 'SSR',
+                            imageUrl: 'https://assets.spacegurumis.lat/variants/ssr/main.webp',
+                            product: { id: 1, name: 'Amigurumi', slug: 'amigurumi' },
+                            category: { id: 2, name: 'Peluche', slug: 'peluche' },
+                        },
+                    },
                 },
                 slots: {
-                    hero: [{
-                        id: 11,
-                        slot: 'home-hero',
-                        title: 'Hero SSR',
-                        altText: 'Hero desde SSR',
-                        publicUrl: 'https://assets.spacegurumis.lat/site/hero-ssr.webp',
-                        sortOrder: 0,
-                    }],
+                    hero: [],
                 },
             }}
         />
@@ -124,94 +108,90 @@ test('uses SSR initial data without duplicate first-load fetches', async () => {
 
     expect(listCatalogVariantsMock).not.toHaveBeenCalled();
     expect(listSiteAssetsBySlotMock).not.toHaveBeenCalled();
-
-    expect(await screen.findByRole('img', { name: 'Amigurumi - SSR' })).toHaveAttribute(
+    const hero = screen.getByLabelText('Producto destacado');
+    expect(await within(hero).findByRole('img', { name: 'Amigurumi - SSR' })).toHaveAttribute(
         'src',
         'https://assets.spacegurumis.lat/variants/ssr/main.webp'
     );
-    expect(screen.getByRole('img', { name: 'Hero desde SSR' })).toHaveAttribute(
-        'src',
-        'https://assets.spacegurumis.lat/site/hero-ssr.webp'
-    );
 });
 
-test('renders promotional whatsapp CTA with the new copy', async () => {
+test('requests catalog highlights when loading on client fallback path', async () => {
     render(<HomePage />);
 
-    expect(
-        await screen.findByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)')
-    ).toBeInTheDocument();
+    await waitFor(() => {
+        expect(listCatalogVariantsMock).toHaveBeenCalledTimes(1);
+    });
 
-    const whatsappLink = screen.getByRole('link', { name: 'Contactar por WhatsApp' });
-    expect(whatsappLink).toHaveAttribute(
-        'href',
-        'https://wa.me/51999999999?text=Hola%2C%20quiero%20cotizar%20un%20pedido%20especial%20para%20amigurumis.'
-    );
-    expect(buildWhatsappUrlMock).toHaveBeenCalledWith('Hola, quiero cotizar un pedido especial para amigurumis.');
+    expect(listCatalogVariantsMock).toHaveBeenCalledWith({
+        page: 1,
+        pageSize: 12,
+        includeHighlights: true,
+    });
 });
 
-test('shows graceful fallback when whatsapp url is unavailable', async () => {
-    buildWhatsappUrlMock.mockReturnValue('');
-
+test('renders best-seller hero from highlight payload', async () => {
     render(<HomePage />);
 
-    await screen.findByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)');
-    expect(screen.queryByRole('link', { name: 'Contactar por WhatsApp' })).toBeNull();
-    expect(screen.getByText('WhatsApp no disponible')).toBeInTheDocument();
-    expect(screen.getByText('Por ahora no podemos abrir WhatsApp desde este dispositivo.')).toBeInTheDocument();
+    const hero = screen.getByLabelText('Producto destacado');
+    const heroImage = await within(hero).findByRole('img', { name: 'Amigurumi - Rojo' });
+    expect(heroImage).toHaveAttribute('src', 'https://assets.spacegurumis.lat/variants/1/red.webp');
+    expect(screen.getByText('Mas vendido')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Rojo' })).toBeInTheDocument();
 });
 
-test('falls back to placeholder image when imageUrl is null', async () => {
+test('falls back to first catalog variant when highlight payload is missing', async () => {
     listCatalogVariantsMock.mockResolvedValueOnce({
-        data: [makeVariant({ imageUrl: null })],
+        data: [makeVariant({ sku: 'SKU-FALLBACK', variantName: 'Verde' })],
         message: 'OK',
         errors: [],
-        meta: { total: 1, page: 1, pageSize: 9, totalPages: 1 },
+        meta: { total: 1, page: 1, pageSize: 12, totalPages: 1, highlights: {} },
     });
 
     render(<HomePage />);
 
-    const thumb = await screen.findByRole('img', { name: 'Amigurumi - Rojo' });
-    expect(thumb).toHaveAttribute('src', '/placeholder-product.svg');
+    const hero = screen.getByLabelText('Producto destacado');
+    const heroImage = await within(hero).findByRole('img', { name: 'Amigurumi - Verde' });
+    expect(heroImage).toHaveAttribute('src', 'https://assets.spacegurumis.lat/variants/1/red.webp');
+    expect(screen.getByRole('heading', { level: 2, name: 'Verde' })).toBeInTheDocument();
+    expect(screen.getByText('Destacado')).toBeInTheDocument();
 });
 
-test('detail action points to dedicated product detail route with sku query', async () => {
+test('falls back to local placeholder when no highlight and no catalog variants exist', async () => {
+    listCatalogVariantsMock.mockResolvedValueOnce({
+        data: [],
+        message: 'OK',
+        errors: [],
+        meta: { total: 0, page: 1, pageSize: 12, totalPages: 0, highlights: {} },
+    });
+
     render(<HomePage />);
 
-    const detailLink = await screen.findByRole('link', { name: 'Ver detalle' });
-    expect(detailLink).toHaveAttribute('href', '/products/amigurumi?sku=SKU-RED');
+    const heroImage = await screen.findByRole('img', { name: 'Coleccion principal de Spacegurumis' });
+    expect(heroImage).toHaveAttribute('src', '/placeholder-product.svg');
+    expect(screen.getByRole('heading', { level: 2, name: 'Coleccion Spacegurumis' })).toBeInTheDocument();
+    expect(screen.getByText('Coleccion')).toBeInTheDocument();
 });
 
-test('uses decorative fallback assets when site-assets API fails', async () => {
+test('home special-order CTA routes to instructions page instead of direct WhatsApp', async () => {
+    render(<HomePage />);
+
+    const specialOrdersCta = await screen.findByRole('link', { name: 'Pedidos especiales' });
+    expect(specialOrdersCta).toHaveAttribute('href', '/special-orders');
+    expect(specialOrdersCta).toHaveAttribute('data-nav-prefetch');
+    expect(screen.queryByRole('link', { name: /whatsapp/i })).toBeNull();
+    expect(
+        screen.queryByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)')
+    ).toBeNull();
+});
+
+test('decorative site-assets failure does not block best-seller hero flow', async () => {
     listSiteAssetsBySlotMock.mockRejectedValueOnce(new Error('network'));
 
     render(<HomePage />);
 
-    const hero = await screen.findByRole('img', { name: 'Banner de pedidos especiales de Spacegurumis' });
-    expect(hero).toHaveAttribute('src', '/pedidos-especiales.jpeg');
-    expect(screen.getByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)')).toBeInTheDocument();
-});
-
-test('uses decorative fallback assets when site-assets API returns empty data', async () => {
-    listSiteAssetsBySlotMock.mockResolvedValueOnce({
-        data: [],
-        message: 'OK',
-        errors: [],
-        meta: {},
-    });
-
-    render(<HomePage />);
-
-    const hero = await screen.findByRole('img', { name: 'Banner de pedidos especiales de Spacegurumis' });
-    expect(hero).toHaveAttribute('src', '/pedidos-especiales.jpeg');
-    expect(screen.getByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)')).toBeInTheDocument();
-});
-
-test('keeps the special-order CTA available without secondary banner slot dependency', async () => {
-    render(<HomePage />);
-
-    await screen.findByText('Haz tu pedido aquí, contáctanos por wsp con tu pedido especial para cotizar :)');
-    expect(listSiteAssetsBySlotMock).toHaveBeenCalledTimes(1);
-    expect(listSiteAssetsBySlotMock).not.toHaveBeenCalledWith('home-banner');
-    expect(screen.getByRole('link', { name: 'Contactar por WhatsApp' })).toBeInTheDocument();
+    const hero = screen.getByLabelText('Producto destacado');
+    const heroImage = await within(hero).findByRole('img', { name: 'Amigurumi - Rojo' });
+    expect(heroImage).toHaveAttribute('src', 'https://assets.spacegurumis.lat/variants/1/red.webp');
+    expect(screen.getByRole('heading', { level: 2, name: 'Rojo' })).toBeInTheDocument();
+    expect(listSiteAssetsBySlotMock).toHaveBeenCalledWith('home-hero');
 });

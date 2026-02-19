@@ -2,7 +2,7 @@
 import '../styles/fonts.css';
 import '../styles/global.css';
 import PublicNavigation from '../components/layout/PublicNavigation';
-import { buildServerApiUrl } from '../lib/api/server';
+import { probePublicSession, type PublicSessionSnapshot } from '../lib/session/publicSession.server';
 
 type Props = {
     title?: string;
@@ -24,27 +24,12 @@ const inferredNavigationMode =
 const resolvedNavigationMode =
     navigationMode === 'auto' ? inferredNavigationMode : navigationMode;
 
-let initialPublicAuthenticated = false;
+let initialPublicSession: PublicSessionSnapshot = 'unknown';
 if (resolvedNavigationMode === 'public') {
-    const cookieHeader = Astro.request.headers.get('cookie');
-    if (cookieHeader) {
-        try {
-            const profileUrl = buildServerApiUrl(Astro.url, '/api/v1/profile');
-            const profileOrigin = new URL(profileUrl).origin;
-            if (profileOrigin === Astro.url.origin) {
-                const response = await fetch(profileUrl, {
-                    method: 'GET',
-                    headers: {
-                        Accept: 'application/json',
-                        Cookie: cookieHeader,
-                    },
-                });
-                initialPublicAuthenticated = response.ok;
-            }
-        } catch {
-            initialPublicAuthenticated = false;
-        }
-    }
+    initialPublicSession = await probePublicSession({
+        requestUrl: Astro.url,
+        cookieHeader: Astro.request.headers.get('cookie'),
+    });
 }
 ---
 
@@ -73,7 +58,7 @@ if (resolvedNavigationMode === 'public') {
                     resolvedNavigationMode === 'public' ? (
                         <PublicNavigation
                             client:load
-                            initialAuthenticated={initialPublicAuthenticated}
+                            initialSession={initialPublicSession}
                         />
                     ) : null
                 }
@@ -95,8 +80,53 @@ if (resolvedNavigationMode === 'public') {
 
         <footer class="site-footer">
             <div class="container site-footer__inner">
-                <p class="muted">© {new Date().getFullYear()} Spacegurumis</p>
+                <section class="site-footer__brand" aria-labelledby="footer-brand-heading">
+                    <h2 id="footer-brand-heading" class="site-footer__title">
+                        Spacegurumis
+                    </h2>
+                    <p class="muted">
+                        Tejemos amigurumis con detalle artesanal para cada aventura.
+                    </p>
+                </section>
+
+                <nav class="site-footer__column" aria-label="Navegacion tienda">
+                    <h2 class="site-footer__title">Tienda</h2>
+                    <a href="/shop" data-nav-prefetch>Tienda</a>
+                    <a href="/shop" data-nav-prefetch>Colecciones</a>
+                    <a href="/special-orders" data-nav-prefetch>Pedidos especiales</a>
+                </nav>
+
+                <nav class="site-footer__column" aria-label="Ayuda y soporte">
+                    <h2 class="site-footer__title">Ayuda</h2>
+                    <a href="/about" data-nav-prefetch>Sobre nosotros</a>
+                    <a href="/contact" data-nav-prefetch>Contactanos</a>
+                    <a href="/care-instructions" data-nav-prefetch>Instrucciones de cuidado</a>
+                    <a href="/special-orders" data-nav-prefetch>Como pedir especial</a>
+                </nav>
+
+                <section class="site-footer__column site-footer__newsletter" aria-labelledby="footer-newsletter-heading">
+                    <h2 id="footer-newsletter-heading" class="site-footer__title">Newsletter</h2>
+                    <p class="muted">
+                        Suscribete para recibir novedades de modelos y drops semanales.
+                    </p>
+                    <form class="site-footer__newsletter-form" action="#" method="post" onsubmit="return false">
+                        <label for="footer-newsletter-email" class="sr-only">Correo</label>
+                        <input
+                            id="footer-newsletter-email"
+                            type="email"
+                            name="email"
+                            placeholder="tu-correo@ejemplo.com"
+                            autocomplete="email"
+                        />
+                        <button type="submit" class="button button--primary">
+                            Suscribirme
+                        </button>
+                    </form>
+                </section>
             </div>
+            <p class="container site-footer__legal muted">
+                © {new Date().getFullYear()} Spacegurumis. Todos los derechos reservados.
+            </p>
         </footer>
 
         <script type="module">

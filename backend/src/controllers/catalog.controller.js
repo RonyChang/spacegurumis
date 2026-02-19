@@ -34,6 +34,7 @@ function parseListParams(req) {
     const rawMinPrice = getSingleValue(req.query.minPrice);
     const rawMaxPrice = getSingleValue(req.query.maxPrice);
     const rawIncludeFacets = getSingleValue(req.query.includeFacets);
+    const rawIncludeHighlights = getSingleValue(req.query.includeHighlights);
 
     const category = typeof rawCategory === 'string' ? rawCategory.trim() : '';
     const product = typeof rawProduct === 'string' ? rawProduct.trim() : '';
@@ -61,6 +62,7 @@ function parseListParams(req) {
             maxPrice: maxPriceCents,
         },
         includeFacets: parseBooleanFlag(rawIncludeFacets, false),
+        includeHighlights: parseBooleanFlag(rawIncludeHighlights, false),
     };
 }
 
@@ -104,11 +106,11 @@ async function listProducts(req, res, next) {
 
 async function listVariants(req, res, next) {
     try {
-        const { filters, page, pageSize, includeFacets } = parseListParams(req);
+        const { filters, page, pageSize, includeFacets, includeHighlights } = parseListParams(req);
         const { items, meta } = await catalogService.listVariants(filters, {
             page,
             pageSize,
-        }, { includeFacets });
+        }, { includeFacets, includeHighlights });
         res.status(200).json({
             data: items,
             message: 'OK',

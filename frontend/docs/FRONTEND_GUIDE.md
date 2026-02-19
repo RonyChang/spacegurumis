@@ -48,6 +48,10 @@ Nota: muchas pantallas privadas siguen usando **guard client-side** (por simplic
 Rutas principales (paridad con el frontend anterior):
 - `/` catalogo (listado de variantes)
 - `/products/[slug]` detalle publico por producto (admite `?sku=<sku>`)
+- `/about`
+- `/contact`
+- `/care-instructions`
+- `/special-orders`
 - `/admin` consola admin (guard client-side por sesion+rol)
 - `/login`
 - `/forgot-password`
@@ -64,15 +68,21 @@ Header publico sensible a sesion:
 - Autenticado: `Perfil`, `Cerrar sesión`
 - Sin enlace `/admin` en navegacion storefront
 
-### Decoracion dinamica en Home
+### Hero comercial + decoracion opcional en Home
 
-La portada (`/`) consume assets decorativos por slot desde backend:
-- `GET /api/v1/site-assets/home-hero`
+La portada (`/`) usa una sola carga SSR de catalogo para renderizar:
+- grid principal
+- colecciones
+- hero de variante destacada por ventas (`includeHighlights=true`)
 
-Comportamiento:
-- Si la API retorna datos: se renderiza imagen remota (R2) del hero principal.
-- Si falla la API o retorna vacio: se usa fallback local del hero (`/pedidos-especiales.jpeg`).
-- El CTA principal de pedidos especiales vive en el hero; el slot secundario `home-banner` es opcional y no bloquea conversion.
+Fallback del hero:
+1. `meta.highlights.bestSeller`
+2. primera variante valida del payload
+3. placeholder local (`/placeholder-product.svg`)
+
+Decoracion opcional:
+- El slot `home-hero` (`GET /api/v1/site-assets/home-hero`) se usa solo como acento visual.
+- Si el slot falla o retorna vacio, el hero comercial se mantiene operativo.
 
 ### Delivery de imágenes 1:1 en Product Detail
 
@@ -107,6 +117,11 @@ Variables clave:
   - Puede definirse como host puro o URL (`https://assets.spacegurumis.lat`).
 - `PUBLIC_WHATSAPP_NUMBER`, `PUBLIC_WHATSAPP_TEMPLATE`, `PUBLIC_WHATSAPP_ORDER_TEMPLATE`:
   - Configuran los links/mensajes de WhatsApp.
+- `API_INTERNAL_BASE_URL` (server-only):
+  - Origin interno opcional para SSR (ej. `http://backend:3000`).
+- `API_PUBLIC_SESSION_TRUSTED_ORIGINS` (server-only):
+  - CSV de origins permitidos para reenviar cookie al probe SSR de sesion publica.
+  - Si el profile endpoint apunta a un origin fuera de esta lista, el layout usa estado inicial `unknown`.
 
 ## 5) Desarrollo local
 
@@ -231,6 +246,7 @@ Seguridad (manual)
 
 Evidencia versionada de este hardening:
 - `frontend/docs/NAVIGATION_PERFORMANCE_SMOKE.md`
+- `frontend/docs/STOREFRONT_SESSION_MOBILE_SPECIAL_ORDERS_SMOKE.md`
 
 Precondiciones de la prueba automatizada de reachability (`frontend/src/test/coreRoutesReachability.test.ts`):
 - Dependencias instaladas en `spacegurumis/frontend` (`npm install`).

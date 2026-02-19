@@ -1,38 +1,33 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { addCartItem as addCartItemApi } from '../../lib/api/cart';
 import { ApiError } from '../../lib/api/client';
-import { listCatalogVariants, type CatalogVariant } from '../../lib/api/catalog';
+import {
+    listCatalogVariants,
+    type CatalogVariant,
+    type CatalogVariantHighlight,
+} from '../../lib/api/catalog';
 import { listSiteAssetsBySlot, type SiteAsset } from '../../lib/api/siteAssets';
 import { formatPrice, formatVariantTitle } from '../../lib/format';
 import { readGuestCart, writeGuestCart } from '../../lib/cart/guestCart';
-import { buildWhatsappUrl } from '../../lib/whatsapp';
 import Alert from '../ui/Alert';
 import Button from '../ui/Button';
 
 const CATALOG_PAGE_SIZE = 12;
 const HERO_SLOT = 'home-hero';
-const HERO_FALLBACK_ASSETS: SiteAsset[] = [
-    {
-        id: 0,
-        slot: HERO_SLOT,
-        title: 'Haz tu pedido especial',
-        altText: 'Banner de pedidos especiales de Spacegurumis',
-        publicUrl: '/pedidos-especiales.jpeg',
-        sortOrder: 0,
-    },
-];
-const HOME_PROMO_COPY = 'Haz tu pedido aquí, contáctanos con tu pedido especial para cotizar :)';
-const HOME_PROMO_WHATSAPP_MESSAGE = 'Hola, soy un humano curioso en busca de amigurumis especiales!';
+const HERO_IMAGE_PLACEHOLDER = '/placeholder-product.svg';
+const DECORATIVE_FALLBACK_ASSETS: SiteAsset[] = [];
 
 export type HomeCatalogInitialState = {
     variants: CatalogVariant[];
     page: number;
     totalPages: number;
+    highlights?: {
+        bestSeller?: CatalogVariantHighlight | null;
+    };
 };
 
 export type HomeSlotsInitialState = {
     hero: SiteAsset[];
-    banner?: SiteAsset[];
 };
 
 export type HomePageInitialData = {
@@ -51,13 +46,20 @@ type FeaturedCollection = {
     imageUrl: string;
 };
 
+type HomeHeroContent = {
+    source: 'highlight' | 'catalog' | 'placeholder';
+    imageUrl: string;
+    altText: string;
+    variantName: string;
+};
+
 function imgErrorToPlaceholder(event: React.SyntheticEvent<HTMLImageElement>) {
     const img = event.currentTarget;
     if (img.dataset.fallbackApplied === '1') {
         return;
     }
     img.dataset.fallbackApplied = '1';
-    img.src = '/placeholder-product.svg';
+    img.src = HERO_IMAGE_PLACEHOLDER;
 }
 
 function normalizeSiteAssets(data: SiteAsset[] | null | undefined, fallback: SiteAsset[]) {
@@ -92,11 +94,69 @@ function buildFeaturedCollections(variants: CatalogVariant[]) {
             slug,
             name: categoryName,
             total: 1,
-            imageUrl: variant.imageUrl || '/placeholder-product.svg',
+            imageUrl: variant.imageUrl || HERO_IMAGE_PLACEHOLDER,
         });
     }
 
     return Array.from(grouped.values()).sort((a, b) => b.total - a.total).slice(0, 3);
+}
+
+function pickCatalogFallbackVariant(variants: CatalogVariant[]) {
+    return variants.find((variant) => {
+        const sku = String(variant?.sku || '').trim();
+        const productName = String(variant?.product?.name || '').trim();
+        return Boolean(sku && productName);
+    }) || null;
+}
+
+function resolveHeroContent(
+    highlight: CatalogVariantHighlight | null | undefined,
+    variants: CatalogVariant[]
+): HomeHeroContent {
+    const highlightSku = String(highlight?.sku || '').trim();
+    const highlightVariantName = String(highlight?.variantName || '').trim();
+    const highlightProductName = String(highlight?.product?.name || '').trim();
+    const highlightImageUrl = String(highlight?.imageUrl || '').trim();
+
+    if (highlightSku && highlightProductName && highlightImageUrl) {
+        return {
+            source: 'highlight',
+            imageUrl: highlightImageUrl,
+            altText: `${highlightProductName} - ${highlightVariantName || highlightProductName}`,
+            variantName: highlightVariantName || highlightProductName,
+        };
+    }
+
+    const fallbackVariant = pickCatalogFallbackVariant(variants);
+    if (fallbackVariant) {
+        const fallbackName = String(fallbackVariant.variantName || fallbackVariant.product.name || 'Producto');
+        const productName = String(fallbackVariant.product?.name || 'Producto');
+        return {
+            source: 'catalog',
+            imageUrl: String(fallbackVariant.imageUrl || HERO_IMAGE_PLACEHOLDER),
+            altText: `${productName} - ${fallbackName}`,
+            variantName: fallbackName,
+        };
+    }
+
+    return {
+        source: 'placeholder',
+        imageUrl: HERO_IMAGE_PLACEHOLDER,
+        altText: 'Coleccion principal de Spacegurumis',
+        variantName: 'Coleccion Spacegurumis',
+    };
+}
+
+function getHeroSourceLabel(source: HomeHeroContent['source']) {
+    if (source === 'highlight') {
+        return 'Mas vendido';
+    }
+
+    if (source === 'catalog') {
+        return 'Destacado';
+    }
+
+    return 'Coleccion';
 }
 
 export default function HomePage({ initialData = null }: HomePageProps) {
@@ -109,8 +169,13 @@ export default function HomePage({ initialData = null }: HomePageProps) {
     const [variants, setVariants] = useState<CatalogVariant[]>(
         initialCatalog && Array.isArray(initialCatalog.variants) ? initialCatalog.variants : []
     );
+    const [bestSellerHighlight, setBestSellerHighlight] = useState<CatalogVariantHighlight | null>(
+        initialCatalog && initialCatalog.highlights && initialCatalog.highlights.bestSeller
+            ? initialCatalog.highlights.bestSeller
+            : null
+    );
     const [heroAssets, setHeroAssets] = useState<SiteAsset[]>(
-        normalizeSiteAssets(initialSlots ? initialSlots.hero : undefined, HERO_FALLBACK_ASSETS)
+        normalizeSiteAssets(initialSlots ? initialSlots.hero : undefined, DECORATIVE_FALLBACK_ASSETS)
     );
 
     const [message, setMessage] = useState('');
@@ -120,8 +185,16 @@ export default function HomePage({ initialData = null }: HomePageProps) {
         setStatus('loading');
         setError('');
         try {
-            const res = await listCatalogVariants(1, CATALOG_PAGE_SIZE);
+            const res = await listCatalogVariants({
+                page: 1,
+                pageSize: CATALOG_PAGE_SIZE,
+                includeHighlights: true,
+            });
             setVariants(Array.isArray(res.data) ? res.data : []);
+            const nextHighlight = res.meta && res.meta.highlights
+                ? res.meta.highlights.bestSeller || null
+                : null;
+            setBestSellerHighlight(nextHighlight);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Error al cargar el catalogo.');
         } finally {
@@ -132,9 +205,9 @@ export default function HomePage({ initialData = null }: HomePageProps) {
     async function loadDecorativeAssets() {
         try {
             const heroResult = await listSiteAssetsBySlot(HERO_SLOT);
-            setHeroAssets(normalizeSiteAssets(heroResult.data, HERO_FALLBACK_ASSETS));
+            setHeroAssets(normalizeSiteAssets(heroResult.data, DECORATIVE_FALLBACK_ASSETS));
         } catch {
-            setHeroAssets(HERO_FALLBACK_ASSETS);
+            setHeroAssets(DECORATIVE_FALLBACK_ASSETS);
         }
     }
 
@@ -187,8 +260,11 @@ export default function HomePage({ initialData = null }: HomePageProps) {
         }
     }, [initialCatalog, initialSlots]);
 
-    const heroAsset = heroAssets[0] || HERO_FALLBACK_ASSETS[0];
-    const promoWhatsappUrl = buildWhatsappUrl(HOME_PROMO_WHATSAPP_MESSAGE);
+    const heroContent = useMemo(
+        () => resolveHeroContent(bestSellerHighlight, variants),
+        [bestSellerHighlight, variants]
+    );
+    const decorativeHeroAsset = heroAssets[0] || null;
     const featuredCollections = useMemo(() => buildFeaturedCollections(variants), [variants]);
     const highlightedVariants = useMemo(() => variants.slice(0, 4), [variants]);
 
@@ -201,57 +277,39 @@ export default function HomePage({ initialData = null }: HomePageProps) {
                         <span>Spacegurumi Friends</span>
                     </h1>
                     <p>
-                        Compañeros tejidos a mano desde el espacio para acompañarte todos los dias.
+                        Companeros tejidos a mano desde el espacio para acompanarte todos los dias.
                     </p>
                     <div className="home-hero__actions">
                         <a className="button button--primary" href="/shop" data-nav-prefetch>Adoptar ahora</a>
-                        <a className="button button--ghost" href="/shop" data-nav-prefetch>Pedidos especiales</a>
+                        <a className="button button--ghost" href="/special-orders" data-nav-prefetch>
+                            Pedidos especiales
+                        </a>
                     </div>
+                    {decorativeHeroAsset ? (
+                        <div className="home-hero__decor">
+                            <img
+                                src={decorativeHeroAsset.publicUrl}
+                                alt={decorativeHeroAsset.altText || decorativeHeroAsset.title || 'Decoracion home'}
+                                loading="lazy"
+                                decoding="async"
+                                onError={imgErrorToPlaceholder}
+                            />
+                            <span>{decorativeHeroAsset.title || 'Decoracion de temporada'}</span>
+                        </div>
+                    ) : null}
                 </div>
 
-                <article id="hero-pedido-especial" className="promo-cta home-hero__promo">
+                <article className="home-hero__featured" aria-label="Producto destacado">
                     <img
-                        src={heroAsset.publicUrl}
-                        alt={heroAsset.altText || 'Banner de pedidos especiales de Spacegurumis'}
+                        src={heroContent.imageUrl}
+                        alt={heroContent.altText}
                         loading="eager"
                         decoding="async"
                         onError={imgErrorToPlaceholder}
                     />
-                    <div className="promo-cta__overlay">
-                        <p className="promo-cta__eyebrow">Pedidos especiales</p>
-                        <h3>{HOME_PROMO_COPY}</h3>
-                        {promoWhatsappUrl ? (
-                            <a
-                                className="button button--whatsapp promo-cta__button"
-                                href={promoWhatsappUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                            >
-                                <svg
-                                    aria-hidden="true"
-                                    focusable="false"
-                                    width="18"
-                                    height="18"
-                                    viewBox="0 0 24 24"
-                                >
-                                    <path
-                                        fill="currentColor"
-                                        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.174.198-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.654-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.447-.52.149-.174.198-.298.298-.497.099-.198.05-.372-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.372-.01-.57-.01-.198 0-.52.074-.792.372-.273.297-1.04 1.016-1.04 2.479s1.065 2.875 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.29.173-1.413-.074-.124-.272-.198-.57-.347M12.047 21.785h-.004a9.867 9.867 0 0 1-5.031-1.378l-.361-.214-3.741.982 1-3.648-.235-.374a9.864 9.864 0 0 1-1.51-5.26c.001-5.446 4.43-9.876 9.878-9.876a9.846 9.846 0 0 1 6.987 2.894 9.86 9.86 0 0 1 2.893 7c-.003 5.447-4.432 9.876-9.876 9.876m8.416-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.893A11.82 11.82 0 0 0 1.73 17.85L0 24l6.305-1.654a11.867 11.867 0 0 0 5.741 1.467h.005c6.556 0 11.89-5.335 11.893-11.893a11.82 11.82 0 0 0-3.477-8.432"
-                                    />
-                                </svg>
-                                <span>Contactar por WhatsApp</span>
-                            </a>
-                        ) : (
-                            <div className="promo-cta__fallback" role="status" aria-live="polite">
-                                <span
-                                    className="button button--ghost promo-cta__button promo-cta__button--disabled"
-                                    aria-disabled="true"
-                                >
-                                    WhatsApp no disponible
-                                </span>
-                                <p>Por ahora no podemos abrir WhatsApp desde este dispositivo.</p>
-                            </div>
-                        )}
+                    <div className="home-hero__featured-overlay">
+                        <p>{getHeroSourceLabel(heroContent.source)}</p>
+                        <h2>{heroContent.variantName}</h2>
                     </div>
                 </article>
             </section>
@@ -304,7 +362,7 @@ export default function HomePage({ initialData = null }: HomePageProps) {
                         <article className="card storefront-card" key={variant.sku}>
                             <div className="card__thumb storefront-card__thumb">
                                 <img
-                                    src={variant.imageUrl || '/placeholder-product.svg'}
+                                    src={variant.imageUrl || HERO_IMAGE_PLACEHOLDER}
                                     alt={formatVariantTitle(variant)}
                                     loading={index < 2 ? 'eager' : 'lazy'}
                                     decoding="async"

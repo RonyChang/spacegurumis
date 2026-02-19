@@ -16,7 +16,7 @@ type CoreRouteCase = {
 };
 
 const CORE_ROUTE_CASES: CoreRouteCase[] = [
-    { route: '/', titleNeedle: 'Spacegurumis | Inicio', contentNeedle: 'Adorables' },
+    { route: '/', titleNeedle: 'Spacegurumis | Inicio', contentNeedle: 'Spacegurumi Friends' },
     { route: '/shop', titleNeedle: 'Spacegurumis | Tienda', contentNeedle: 'Adopta un Alien' },
     { route: '/products/smoke-slug', titleNeedle: 'Spacegurumis | smoke-slug', contentNeedle: 'Detalle' },
     { route: '/login', titleNeedle: 'Spacegurumis | Login', contentNeedle: 'Iniciar sesión' },
@@ -24,6 +24,10 @@ const CORE_ROUTE_CASES: CoreRouteCase[] = [
     { route: '/reset-password', titleNeedle: 'Spacegurumis | Restablecer contraseña', contentNeedle: 'Nueva contraseña' },
     { route: '/register', titleNeedle: 'Spacegurumis | Registro', contentNeedle: 'Crear cuenta' },
     { route: '/verify', titleNeedle: 'Spacegurumis | Verificar email', contentNeedle: 'Verificar email' },
+    { route: '/about', titleNeedle: 'Spacegurumis | Sobre nosotros', contentNeedle: 'Sobre Spacegurumis' },
+    { route: '/contact', titleNeedle: 'Spacegurumis | Contacto', contentNeedle: 'Canales directos' },
+    { route: '/care-instructions', titleNeedle: 'Spacegurumis | Instrucciones de cuidado', contentNeedle: 'Recomendaciones clave' },
+    { route: '/special-orders', titleNeedle: 'Spacegurumis | Pedidos especiales', contentNeedle: 'Como pedir un amigurumi personalizado' },
     { route: '/admin-2fa', titleNeedle: 'Spacegurumis | Verificación admin', contentNeedle: 'Verificación admin' },
     { route: '/profile', titleNeedle: 'Spacegurumis | Perfil', contentNeedle: 'Perfil' },
     { route: '/cart', titleNeedle: 'Spacegurumis | Carrito', contentNeedle: 'Carrito' },

@@ -1,4 +1,4 @@
-const DEFAULT_SELECTOR = 'a[data-nav-prefetch], .site-header a[href], a.brand[href]';
+const DEFAULT_SELECTOR = 'a[data-nav-prefetch], .site-header a[href], .site-footer a[href], a.brand[href]';
 const ROUTE_LOADING_CLASS = 'is-route-transitioning';
 const INIT_KEY = '__sgAcceleratedNavigationInitialized';
 
@@ -211,4 +211,3 @@ export function initAcceleratedNavigation(options: InitOptions = {}) {
         flagContainer[INIT_KEY] = false;
     };
 }
-

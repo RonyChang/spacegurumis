@@ -2,7 +2,7 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import HomePage, { type HomePageInitialData } from '../components/pages/HomePage';
 import { serverApiGet } from '../lib/api/server';
-import { type CatalogVariant, type PaginationMeta } from '../lib/api/catalog';
+import { type CatalogVariant, type CatalogVariantsMeta } from '../lib/api/catalog';
 import { type SiteAsset } from '../lib/api/siteAssets';
 
 const CATALOG_PAGE_SIZE = 12;
@@ -14,9 +14,9 @@ let initialData: HomePageInitialData = {
 };
 
 try {
-    const catalogResponse = await serverApiGet<CatalogVariant[], PaginationMeta>(
+    const catalogResponse = await serverApiGet<CatalogVariant[], CatalogVariantsMeta>(
         Astro.url,
-        `/api/v1/catalog/variants?page=1&pageSize=${CATALOG_PAGE_SIZE}`
+        `/api/v1/catalog/variants?page=1&pageSize=${CATALOG_PAGE_SIZE}&includeHighlights=true`
     );
 
     const page = Number(catalogResponse.meta?.page);
@@ -28,6 +28,9 @@ try {
             variants: Array.isArray(catalogResponse.data) ? catalogResponse.data : [],
             page: Number.isFinite(page) && page > 0 ? page : 1,
             totalPages: Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
+            highlights: catalogResponse.meta && catalogResponse.meta.highlights
+                ? catalogResponse.meta.highlights
+                : undefined,
         },
     };
 } catch {

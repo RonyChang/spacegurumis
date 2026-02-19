@@ -39,6 +39,9 @@ export type CatalogFacetFiltersMeta = {
 
 export type CatalogVariantsMeta = PaginationMeta & {
     filters?: CatalogFacetFiltersMeta;
+    highlights?: {
+        bestSeller?: CatalogVariantHighlight | null;
+    };
 };
 
 export type CatalogCategory = {
@@ -60,6 +63,14 @@ export type CatalogVariant = {
     imageUrl?: string | null;
     price: number | null;
     stockAvailable: number;
+    product: CatalogProductLite;
+    category: CatalogCategory;
+};
+
+export type CatalogVariantHighlight = {
+    sku: string;
+    variantName: string | null;
+    imageUrl: string | null;
     product: CatalogProductLite;
     category: CatalogCategory;
 };
@@ -101,6 +112,7 @@ export type CatalogVariantsQuery = {
     minPrice?: number | null;
     maxPrice?: number | null;
     includeFacets?: boolean;
+    includeHighlights?: boolean;
 };
 
 function appendQueryParam(params: URLSearchParams, key: string, value: unknown) {
@@ -153,6 +165,7 @@ export function listCatalogVariants(
     appendQueryParam(params, 'minPrice', query.minPrice);
     appendQueryParam(params, 'maxPrice', query.maxPrice);
     appendQueryParam(params, 'includeFacets', query.includeFacets);
+    appendQueryParam(params, 'includeHighlights', query.includeHighlights);
 
     return apiGet<CatalogVariant[], CatalogVariantsMeta>(
         `/api/v1/catalog/variants?${params.toString()}`

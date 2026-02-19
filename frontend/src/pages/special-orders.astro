@@ -1,0 +1,47 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { buildWhatsappUrl } from '../lib/whatsapp';
+
+const specialOrderMessage =
+    'Hola, quiero cotizar un pedido especial de amigurumi. Tengo referencias y detalles listos.';
+const specialOrderWhatsappUrl = buildWhatsappUrl(specialOrderMessage);
+---
+
+<BaseLayout title="Spacegurumis | Pedidos especiales" description="Guia para pedidos especiales de amigurumi">
+    <section class="surface page help-shell">
+        <article class="panel-card help-shell__card">
+            <p class="section-eyebrow">Pedidos especiales</p>
+            <h1>Como pedir un amigurumi personalizado</h1>
+            <p>
+                Para cotizar rapido y con precision, necesitamos la mayor cantidad posible de contexto
+                antes de iniciar el tejido.
+            </p>
+        </article>
+
+        <article class="panel-card help-shell__card">
+            <h2>Paso a paso recomendado</h2>
+            <ol class="help-steps">
+                <li>Describe el personaje o idea principal.</li>
+                <li>Adjunta fotos de referencia desde distintos angulos.</li>
+                <li>Indica tamano aproximado y colores obligatorios.</li>
+                <li>Define fecha limite de entrega y ciudad de envio.</li>
+                <li>Menciona extras opcionales (accesorios, base, empaque especial).</li>
+            </ol>
+
+            {specialOrderWhatsappUrl ? (
+                <a
+                    class="button button--whatsapp"
+                    href={specialOrderWhatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Enviar pedido por WhatsApp
+                </a>
+            ) : (
+                <p class="status">
+                    WhatsApp no disponible por ahora. Intenta nuevamente en unos minutos.
+                </p>
+            )}
+        </article>
+    </section>
+</BaseLayout>

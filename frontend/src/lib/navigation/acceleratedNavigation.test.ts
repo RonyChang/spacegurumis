@@ -86,11 +86,15 @@ describe('acceleratedNavigation', () => {
         cleanup();
     });
 
-    test('default acceleration scope includes header links and home card CTA links', async () => {
+    test('default acceleration scope includes header, footer help links and home card CTA links', async () => {
         document.body.innerHTML = `
             <header class="site-header">
                 <a href="/orders">Mis pedidos</a>
             </header>
+            <footer class="site-footer">
+                <a href="/about">Sobre nosotros</a>
+                <a href="/special-orders">Pedidos especiales</a>
+            </footer>
             <section class="catalog">
                 <a href="/products/alien?sku=ALIEN-001" data-nav-prefetch>Ver detalle</a>
             </section>
@@ -103,16 +107,24 @@ describe('acceleratedNavigation', () => {
         });
 
         const headerLink = document.querySelector('.site-header a');
+        const footerHelpLink = document.querySelector('.site-footer a[href="/about"]');
+        const footerSpecialOrdersLink = document.querySelector('.site-footer a[href="/special-orders"]');
         const cardCtaLink = document.querySelector('.catalog a[data-nav-prefetch]');
         expect(headerLink).not.toBeNull();
+        expect(footerHelpLink).not.toBeNull();
+        expect(footerSpecialOrdersLink).not.toBeNull();
         expect(cardCtaLink).not.toBeNull();
 
         headerLink?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+        footerHelpLink?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+        footerSpecialOrdersLink?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
         cardCtaLink?.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
         await Promise.resolve();
 
         const prefetchedUrls = prefetcher.mock.calls.map(([url]) => String(url));
         expect(prefetchedUrls.some((url) => url.endsWith('/orders'))).toBe(true);
+        expect(prefetchedUrls.some((url) => url.endsWith('/about'))).toBe(true);
+        expect(prefetchedUrls.some((url) => url.endsWith('/special-orders'))).toBe(true);
         expect(
             prefetchedUrls.some((url) => url.includes('/products/alien?sku=ALIEN-001'))
         ).toBe(true);

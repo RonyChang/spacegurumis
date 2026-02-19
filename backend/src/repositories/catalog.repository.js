@@ -1,9 +1,11 @@
-const { Op, fn, col } = require('sequelize');
+const { Op, fn, col, literal } = require('sequelize');
 const {
     Category,
     Product,
     ProductVariant,
     Inventory,
+    Order,
+    OrderItem,
 } = require('../models');
 const productImagesRepository = require('./productImages.repository');
 
@@ -487,6 +489,98 @@ async function fetchProductVariants(productId) {
     });
 }
 
+async function fetchBestSellerHighlight() {
+    const rankedRows = await OrderItem.findAll({
+        attributes: [
+            'productVariantId',
+            [fn('SUM', col('OrderItem.quantity')), 'soldUnits'],
+            [fn('MAX', col('order.updated_at')), 'lastSoldAt'],
+        ],
+        include: [
+            {
+                model: Order,
+                as: 'order',
+                attributes: [],
+                required: true,
+                where: {
+                    paymentStatus: 'approved',
+                    orderStatus: { [Op.ne]: 'cancelled' },
+                },
+            },
+            {
+                model: ProductVariant,
+                as: 'variant',
+                attributes: ['id', 'sku', 'variantName', 'productId'],
+                required: true,
+                include: [
+                    {
+                        model: Product,
+                        as: 'product',
+                        attributes: ['id', 'name', 'slug', 'categoryId'],
+                        where: { isActive: true },
+                        required: true,
+                        include: [
+                            {
+                                model: Category,
+                                as: 'category',
+                                attributes: ['id', 'name', 'slug'],
+                                required: true,
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+        group: [
+            'OrderItem.productVariantId',
+            'variant.id',
+            'variant.sku',
+            'variant.variantName',
+            'variant.productId',
+            'variant->product.id',
+            'variant->product.name',
+            'variant->product.slug',
+            'variant->product.categoryId',
+            'variant->product->category.id',
+            'variant->product->category.name',
+            'variant->product->category.slug',
+        ],
+        order: [
+            [literal('"soldUnits"'), 'DESC'],
+            [literal('"lastSoldAt"'), 'DESC'],
+            ['productVariantId', 'ASC'],
+        ],
+        limit: 1,
+        subQuery: false,
+    });
+
+    const row = Array.isArray(rankedRows) && rankedRows.length ? rankedRows[0] : null;
+    if (!row || !row.variant || !row.variant.product || !row.variant.product.category) {
+        return null;
+    }
+
+    const variantId = Number(row.productVariantId || row.variant.id) || Number(row.variant.id) || 0;
+    if (!variantId) {
+        return null;
+    }
+
+    const imageUrls = await productImagesRepository.fetchPrimaryImageUrls([variantId]);
+    const primaryImageUrl = imageUrls.get(variantId) || null;
+
+    return {
+        variantId,
+        sku: row.variant.sku,
+        variantName: row.variant.variantName || null,
+        imageUrl: primaryImageUrl,
+        productId: row.variant.product.id,
+        productName: row.variant.product.name,
+        productSlug: row.variant.product.slug,
+        categoryId: row.variant.product.category.id,
+        categoryName: row.variant.product.category.name,
+        categorySlug: row.variant.product.category.slug,
+    };
+}
+
 module.exports = {
     fetchActiveCategories,
     fetchActiveProducts,
@@ -499,4 +593,5 @@ module.exports = {
     fetchProductBySlug,
     fetchVariantBySku,
     fetchProductVariants,
+    fetchBestSellerHighlight,
 };

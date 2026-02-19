@@ -161,4 +161,25 @@ CREATE INDEX IF NOT EXISTS password_reset_tokens_expires_at_idx
 CREATE INDEX IF NOT EXISTS password_reset_tokens_user_id_used_at_idx
     ON password_reset_tokens(user_id, used_at);
 
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'order_items'
+    ) THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS order_items_product_variant_id_order_id_idx ON order_items(product_variant_id, order_id)';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = 'orders'
+    ) THEN
+        EXECUTE 'CREATE INDEX IF NOT EXISTS orders_payment_order_status_updated_at_idx ON orders(payment_status, order_status, updated_at DESC, id)';
+    END IF;
+END $$;
+
 COMMIT;
