@@ -48,6 +48,17 @@ describe('buildCatalogImageDeliveryUrl', () => {
         ).toBe('https://img.spacegurumis.lat/thumb/products/aliens/base.webp');
     });
 
+    test('builds transformed URL for card preset when URL is eligible', async () => {
+        const buildCatalogImageDeliveryUrl = await loadBuilder();
+
+        expect(
+            buildCatalogImageDeliveryUrl(
+                'https://assets.spacegurumis.lat/categories/aliens/cover.webp',
+                'card'
+            )
+        ).toBe('https://img.spacegurumis.lat/card/categories/aliens/cover.webp');
+    });
+
     test('returns original URL when transform config is missing', async () => {
         const buildCatalogImageDeliveryUrl = await loadBuilder({ imageTransformBaseUrl: '' });
         const original = 'https://assets.spacegurumis.lat/variants/ALI-ESP-001/main.webp';

@@ -259,6 +259,10 @@ test('uses detail preset for main gallery image and thumb preset for thumbnails'
             'https://assets.spacegurumis.lat/variants/sku-red/main.webp',
             'thumb'
         );
+        expect(buildCatalogImageDeliveryUrlMock).not.toHaveBeenCalledWith(
+            expect.any(String),
+            'card'
+        );
     });
 
     const mainImage = document.querySelector('.gallery__main img');
@@ -275,6 +279,138 @@ test('uses detail preset for main gallery image and thumb preset for thumbnails'
         'src',
         'https://img.spacegurumis.lat/thumb/variants/sku-red/main.webp'
     );
+});
+
+test('renders gallery arrows for multi-image galleries and keeps thumbnail sync with wrap-around', async () => {
+    getCatalogVariantDetailMock.mockResolvedValueOnce({
+        data: makeVariantDetail('SKU-RED', 'Rojo', {
+            images: [
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/sku-red/one.webp',
+                    altText: 'Imagen 1',
+                    sortOrder: 0,
+                },
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/sku-red/two.webp',
+                    altText: 'Imagen 2',
+                    sortOrder: 1,
+                },
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/sku-red/three.webp',
+                    altText: 'Imagen 3',
+                    sortOrder: 2,
+                },
+            ],
+        }),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    const nextButton = await screen.findByRole('button', { name: 'Imagen siguiente' });
+    const prevButton = screen.getByRole('button', { name: 'Imagen anterior' });
+    const mainImage = document.querySelector('.gallery__main img') as HTMLImageElement | null;
+    expect(mainImage).not.toBeNull();
+    if (!mainImage) {
+        return;
+    }
+
+    const thumbButtons = screen.getAllByRole('button', { name: /Imagen \d de 3/ });
+    expect(thumbButtons[0].className).toContain('gallery__thumb--active');
+
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/one.webp'
+    );
+
+    fireEvent.click(nextButton);
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/two.webp'
+    );
+    expect(thumbButtons[1].className).toContain('gallery__thumb--active');
+
+    fireEvent.click(nextButton);
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/three.webp'
+    );
+    expect(thumbButtons[2].className).toContain('gallery__thumb--active');
+
+    fireEvent.click(nextButton);
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/one.webp'
+    );
+    expect(thumbButtons[0].className).toContain('gallery__thumb--active');
+
+    fireEvent.click(prevButton);
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/three.webp'
+    );
+    expect(thumbButtons[2].className).toContain('gallery__thumb--active');
+
+    expect(getCatalogVariantDetailMock).toHaveBeenCalledTimes(1);
+});
+
+test('supports ArrowLeft/ArrowRight navigation only when gallery focus context is active', async () => {
+    getCatalogVariantDetailMock.mockResolvedValueOnce({
+        data: makeVariantDetail('SKU-RED', 'Rojo', {
+            images: [
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/sku-red/one.webp',
+                    altText: 'Imagen 1',
+                    sortOrder: 0,
+                },
+                {
+                    url: 'https://assets.spacegurumis.lat/variants/sku-red/two.webp',
+                    altText: 'Imagen 2',
+                    sortOrder: 1,
+                },
+            ],
+        }),
+        message: 'OK',
+        errors: [],
+        meta: {},
+    });
+
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    await screen.findByRole('button', { name: 'Imagen siguiente' });
+    const mainImage = document.querySelector('.gallery__main img') as HTMLImageElement | null;
+    const mainGallery = document.querySelector('.gallery__main') as HTMLDivElement | null;
+    expect(mainImage).not.toBeNull();
+    expect(mainGallery).not.toBeNull();
+    if (!mainImage || !mainGallery) {
+        return;
+    }
+
+    fireEvent.keyDown(document.body, { key: 'ArrowRight' });
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/one.webp'
+    );
+
+    mainGallery.focus();
+    fireEvent.keyDown(mainGallery, { key: 'ArrowRight' });
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/two.webp'
+    );
+
+    fireEvent.keyDown(mainGallery, { key: 'ArrowLeft' });
+    expect(mainImage.getAttribute('src')).toBe(
+        'https://img.spacegurumis.lat/detail/variants/sku-red/one.webp'
+    );
+});
+
+test('keeps gallery controls non-interactive when there is only one image', async () => {
+    render(<ProductDetailPage slug="amigurumi" />);
+
+    await screen.findByText('SKU: SKU-RED');
+
+    expect(screen.queryByRole('button', { name: 'Imagen anterior' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Imagen siguiente' })).not.toBeInTheDocument();
+
+    const mainGallery = document.querySelector('.gallery__main');
+    expect(mainGallery).not.toBeNull();
+    expect(mainGallery).toHaveAttribute('tabindex', '-1');
 });
 
 test('falls back from transformed URL to original URL when transformed image fails', async () => {

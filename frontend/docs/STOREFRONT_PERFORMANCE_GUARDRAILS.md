@@ -28,9 +28,12 @@ Mantener la tienda publica rapida y estable durante el rediseño de Home, Shop y
   - Cards y contenido bajo el pliegue usan `loading="lazy"`.
 - Delivery transformado seguro en Product Detail:
   - Main image usa preset `detail` y miniaturas usan preset `thumb` cuando URL es elegible.
+  - Preset `card` queda disponible para cards/listados sin params ad-hoc.
+  - El comportamiento de letterbox/fondo se define en Worker (no en CSS de pagina).
   - Si falta config o falla transform, fallback garantizado: `transformada -> original -> placeholder`.
 - Estabilidad visual:
   - Galeria de Product Detail y miniaturas en formato `1:1` con `object-fit: contain` para evitar recorte/deformacion.
+  - Flechas prev/next de galeria en cliente sin dependencia de carrusel pesado.
   - Contenedores de imagen con `aspect-ratio` en cards/galeria para reducir CLS.
 - Evidencia de rutas runtime:
   - Cobertura SSR reachability en `coreRoutesReachability.test.ts`.

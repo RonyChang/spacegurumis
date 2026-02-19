@@ -20,8 +20,16 @@ describe('Product detail gallery square-image styles', () => {
         expect(globalCss).toMatch(/\.gallery__thumb--active\s*{[\s\S]*box-shadow:/);
     });
 
+    test('defines gallery arrow controls with accessible focus styles', () => {
+        expect(globalCss).toContain('.gallery__control');
+        expect(globalCss).toMatch(/\.gallery__control\s*{[\s\S]*position:\s*absolute;/);
+        expect(globalCss).toMatch(/\.gallery__control:focus-visible\s*{[\s\S]*outline:/);
+        expect(globalCss).toMatch(/\.gallery__main:focus-visible\s*{[\s\S]*outline:/);
+    });
+
     test('keeps detail composition responsive to avoid horizontal overflow on mobile', () => {
         expect(globalCss).toMatch(/\.detail-shell__grid\s*{[\s\S]*grid-template-columns:\s*minmax\(0,\s*1\.15fr\)\s*minmax\(0,\s*1fr\);/);
         expect(globalCss).toMatch(/@media \(max-width:\s*820px\)[\s\S]*\.detail-shell__grid\s*{[\s\S]*grid-template-columns:\s*1fr;/);
+        expect(globalCss).toMatch(/@media \(max-width:\s*820px\)[\s\S]*\.gallery__control\s*{[\s\S]*width:\s*38px;/);
     });
 });

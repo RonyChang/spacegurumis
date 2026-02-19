@@ -340,7 +340,66 @@ export default function ProductDetailPage({
         setSelectedImageIndex(0);
     }, [selectedSku]);
 
-    const currentImage = gallery[Math.min(selectedImageIndex, Math.max(gallery.length - 1, 0))] || gallery[0];
+    const normalizedSelectedImageIndex = useMemo(() => {
+        if (!gallery.length) {
+            return 0;
+        }
+
+        const maxIndex = gallery.length - 1;
+        if (selectedImageIndex < 0) {
+            return maxIndex;
+        }
+
+        if (selectedImageIndex > maxIndex) {
+            return 0;
+        }
+
+        return selectedImageIndex;
+    }, [gallery.length, selectedImageIndex]);
+
+    const galleryHasMultipleImages = gallery.length > 1;
+
+    const selectPreviousImage = () => {
+        if (!galleryHasMultipleImages) {
+            return;
+        }
+
+        setSelectedImageIndex((current) => {
+            if (current <= 0) {
+                return gallery.length - 1;
+            }
+            return current - 1;
+        });
+    };
+
+    const selectNextImage = () => {
+        if (!galleryHasMultipleImages) {
+            return;
+        }
+
+        setSelectedImageIndex((current) => {
+            if (current >= gallery.length - 1) {
+                return 0;
+            }
+            return current + 1;
+        });
+    };
+
+    const handleMainGalleryKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        if (!galleryHasMultipleImages) {
+            return;
+        }
+
+        if (event.key === 'ArrowLeft') {
+            event.preventDefault();
+            selectPreviousImage();
+        } else if (event.key === 'ArrowRight') {
+            event.preventDefault();
+            selectNextImage();
+        }
+    };
+
+    const currentImage = gallery[normalizedSelectedImageIndex] || gallery[0];
     const variantTitle = useMemo(() => {
         if (selectedVariant) {
             return formatVariantTitle(selectedVariant);
@@ -409,7 +468,36 @@ export default function ProductDetailPage({
                 <div className="detail-shell__grid">
                     <div className="detail-shell__media panel-card">
                         <div className="gallery">
-                            <div className="gallery__main">
+                            <div
+                                className="gallery__main"
+                                tabIndex={galleryHasMultipleImages ? 0 : -1}
+                                onKeyDown={handleMainGalleryKeyDown}
+                                aria-label={
+                                    galleryHasMultipleImages
+                                        ? `Galeria de imagenes (${normalizedSelectedImageIndex + 1} de ${gallery.length})`
+                                        : undefined
+                                }
+                            >
+                                {galleryHasMultipleImages ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            className="gallery__control gallery__control--prev"
+                                            aria-label="Imagen anterior"
+                                            onClick={selectPreviousImage}
+                                        >
+                                            <span aria-hidden="true">&lsaquo;</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="gallery__control gallery__control--next"
+                                            aria-label="Imagen siguiente"
+                                            onClick={selectNextImage}
+                                        >
+                                            <span aria-hidden="true">&rsaquo;</span>
+                                        </button>
+                                    </>
+                                ) : null}
                                 <img
                                     src={currentImage.detailUrl}
                                     alt={currentImage.altText || variantTitle}
@@ -430,7 +518,7 @@ export default function ProductDetailPage({
                                         <button
                                             key={`${image.originalUrl}-${image.sortOrder}`}
                                             type="button"
-                                            className={`gallery__thumb ${index === selectedImageIndex ? 'gallery__thumb--active' : ''}`}
+                                            className={`gallery__thumb ${index === normalizedSelectedImageIndex ? 'gallery__thumb--active' : ''}`}
                                             onClick={() => setSelectedImageIndex(index)}
                                             aria-label={`Imagen ${index + 1} de ${gallery.length}`}
                                         >

@@ -1,6 +1,6 @@
 import { publicConfig } from '../config';
 
-export const IMAGE_DELIVERY_PRESETS = ['thumb', 'detail'] as const;
+export const IMAGE_DELIVERY_PRESETS = ['thumb', 'card', 'detail'] as const;
 export type ImageDeliveryPreset = (typeof IMAGE_DELIVERY_PRESETS)[number];
 
 const ALLOWED_SOURCE_PREFIXES = ['variants', 'products', 'categories', 'site'];

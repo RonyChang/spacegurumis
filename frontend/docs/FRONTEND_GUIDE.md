@@ -84,17 +84,28 @@ Decoracion opcional:
 - El slot `home-hero` (`GET /api/v1/site-assets/home-hero`) se usa solo como acento visual.
 - Si el slot falla o retorna vacio, el hero comercial se mantiene operativo.
 
-### Delivery de imágenes 1:1 en Product Detail
+### Delivery de imagenes 1:1 en Product Detail
 
-La galería de detalle (`/products/:slug`) usa dos presets fijos de Cloudflare Worker cuando la URL es elegible:
+La galeria de detalle (`/products/:slug`) usa presets fijos de Cloudflare Worker cuando la URL es elegible:
 - Imagen principal: preset `detail`
 - Miniaturas: preset `thumb`
+- Cards de coleccion/listado que adopten worker: preset `card`
 
 Reglas de seguridad del frontend:
 - Solo transforma `http/https`.
 - Solo transforma si el host de origen coincide con `PUBLIC_IMAGE_SOURCE_HOST`.
 - Solo transforma keys con prefijos permitidos (`variants/`, `products/`, `categories/`, `site/`).
 - Si una imagen transformada falla, aplica fallback escalonado: `transformada -> original -> /placeholder-product.svg`.
+
+Regla de contrato importante:
+- El "letterbox/pillarbox" (relleno cuando sobra espacio en 1:1) se define en el Worker, no en CSS.
+- El frontend solo define contenedor `1:1` + `object-fit: contain` para evitar deformacion.
+
+Operacion/infra recomendada:
+- Ruta de worker activa: `img.spacegurumis.lat/*`.
+- DNS de `img` debe estar en modo proxied (nube naranja).
+- Presets esperados (`thumb`, `card`, `detail`) con `fit: "contain"` y `background: "rgb(0,0,0)"`.
+- Referencia: `frontend/docs/CLOUDFLARE_IMAGE_WORKER_CONTRACT.md`.
 
 Smoke operativo asociado:
 - `frontend/docs/PRODUCT_DETAIL_IMAGE_DELIVERY_SMOKE.md`
